@@ -109,6 +109,7 @@ declare -A qairt_map=(
     ["2.39.0.250925"]="v0.40.0"
     ["2.40.0.251030"]="v0.42.0"
     ["2.41.0.251128"]="v0.44.0"
+    ["2.43.0.260127"]="v0.48.0"
 )
 
 # Checks if the QAIRT version is lesser than or equal to the device QAIRT version
@@ -119,6 +120,13 @@ version_le() {
     else
         return 1
     fi
+}
+
+# Fetches the latest QAIRT version supported
+extract_latest_qairt_version() {
+    qairt_version=$(printf "%s\n" "${!qairt_map[@]}" | sort -V | tail -n 1)
+    split_qairt_version $qairt_version
+    qairt_short_version="${major}.${minor}"
 }
 
 # Selects the nearest (lesser than/equal to) version to the device QAIRT version
@@ -147,6 +155,10 @@ select_supported_qairt_version() {
 download_models() {
     local url=$1
     local output_dir=$2
+    if [ -f "$output_dir" ]; then
+        echo "file already exists at $output_dir. Skipping download."
+        return 0
+    fi
     echo "$url"
     curl -L -O "$url" && unzip -o "$(basename "$url")" && \
     cp "$(basename "$url" .zip)"/* $output_dir
@@ -158,27 +170,90 @@ download_models() {
 download_labels() {
     local url=$1
     local output_dir=$2
-    echo "$url"
-    curl -L -O "$url" && unzip -o "$(basename "$url")" && \
-    cp "$(basename "$url" .zip)"/* $output_dir
-    rm -rf "$(basename "$url" .zip)"
-    rm -rf "$(basename "$url")"
+
+    local zip_name="$(basename "$url")"
+    local tmp_zip="/tmp/$zip_name"
+    local extract_root="/tmp/${zip_name%.zip}"
+
+    echo "Downloading from $url..."
+
+    curl -L "$url" -o "$tmp_zip" || return 1
+
+    rm -rf "$extract_root"
+    mkdir -p "$extract_root"
+    unzip -o "$tmp_zip" -d "$extract_root" || return 1
+
+    # this handles for both nested and flat zips, as in this case the files are in a nested folder
+    local content_dir="$extract_root"
+    if [ "$(find "$extract_root" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1 ]; then
+        content_dir="$(find "$extract_root" -mindepth 1 -maxdepth 1 -type d)"
+    fi
+
+    mkdir -p "$output_dir"
+
+    find "$content_dir" -type f | while read -r file; do
+        local base_file="$(basename "$file")"
+        if [ ! -f "$output_dir/$base_file" ]; then
+            echo "Adding missing file: $base_file"
+            cp "$file" "$output_dir/"
+        else
+            echo "file already exists: ${output_dir}/$base_file. Skipping download."
+        fi
+    done
+
+    rm -rf "$tmp_zip" "$extract_root"
+
+    echo "Done."
 }
 
 # Downloads a file from the given URL and moves it into the specified output directory.
 download_file() {
     local url=$1
     local output_dir=$2
+    if [ -f "$output_dir" ]; then
+        echo "file already exists at $output_dir. Skipping download."
+        return 0
+    fi
     echo "$url"
     curl -L -O "$url"
     # echo "$output_dir"
     mv "$(basename "$url")" "$output_dir"
 }
 
+# Downloads a file after extracting the zip from the given URL and moves it to a specified output directory
+download_from_zip() {
+    local download_url="$1"
+    local output_path="$2"
+    if [ -f "$output_path" ]; then
+        echo "file already exists at $output_path. Skipping download."
+        return 0
+    fi
+    local zip_filename
+    zip_filename="$(basename "$download_url")"
+    curl -L -O "$download_url" && unzip -o "$zip_filename"
+    local extracted_folder="${zip_filename%.zip}"
+
+    if [[ "$extracted_folder" == *-qnn_dlc-* ]]; then
+        base_model_name="${extracted_folder%%-qnn_dlc-w8a8*}"
+        cp "$extracted_folder/$base_model_name.dlc" "$output_path"
+
+    elif [[ "$extracted_folder" == *-tflite-* ]]; then
+        base_model_name="${extracted_folder%%-tflite-w8a8*}"
+        cp "$extracted_folder/$base_model_name.tflite" "$output_path"
+    fi
+
+    rm -rf "$zip_filename"
+    rm -rf "$extracted_folder"
+}
+
 # Downloads a config file from the given URL and saves it directly to the specified output directory.
 download_config() {
     local url=$1
     local output_dir=$2
+    if [ -f "$output_dir" ]; then
+        echo "file already exists at $output_dir. Skipping download."
+        return 0
+    fi
     echo "$url"
     curl -L -o "$output_dir" "$url"
 }
@@ -296,22 +371,47 @@ download_model_artifacts() {
         create_directory "$output_media_path"
 
         #tflite models
-        download_file "https://huggingface.co/qualcomm/Inception-v3/resolve/${model_version}/Inception-v3_w8a8.tflite" "${output_model_path}/inception_v3_quantized.tflite"
-        download_file "https://huggingface.co/qualcomm/DeepLabV3-Plus-MobileNet/resolve/${model_version}/DeepLabV3-Plus-MobileNet_w8a8.tflite" "${output_model_path}/deeplabv3_plus_mobilenet_quantized.tflite"
-        download_file "https://huggingface.co/qualcomm/Midas-V2/resolve/${model_version}/Midas-V2_w8a8.tflite" "${output_model_path}/midas_quantized.tflite"
-        download_file "https://huggingface.co/qualcomm/HRNetPose/resolve/${model_version}/HRNetPose_w8a8.tflite" "${output_model_path}/hrnet_pose_quantized.tflite"
-        download_file "https://huggingface.co/qualcomm/QuickSRNetSmall/resolve/${model_version}/QuickSRNetSmall_w8a8.tflite" "${output_model_path}/quicksrnetsmall_quantized.tflite"
-        download_file "https://huggingface.co/qualcomm/Lightweight-Face-Detection/resolve/${model_version}/Lightweight-Face-Detection_w8a8.tflite" "${output_model_path}/face_det_lite_quantized.tflite"
-        download_file "https://huggingface.co/qualcomm/Facial-Landmark-Detection/resolve/${model_version}/Facial-Landmark-Detection_w8a8.tflite" "${output_model_path}/facemap_3dmm_quantized.tflite"
-        download_file "https://huggingface.co/qualcomm/Facial-Attribute-Detection/resolve/${model_version}/Facial-Attribute-Detection_w8a8.tflite" "${output_model_path}/face_attrib_net_quantized.tflite"
+        if awk "BEGIN {exit !($qairt_short_version < 2.43)}"; then
+
+            download_file "https://huggingface.co/qualcomm/Inception-v3/resolve/${model_version}/Inception-v3_w8a8.tflite" "${output_model_path}/inception_v3_quantized.tflite"
+            download_file "https://huggingface.co/qualcomm/DeepLabV3-Plus-MobileNet/resolve/${model_version}/DeepLabV3-Plus-MobileNet_w8a8.tflite" "${output_model_path}/deeplabv3_plus_mobilenet_quantized.tflite"
+            download_file "https://huggingface.co/qualcomm/Midas-V2/resolve/${model_version}/Midas-V2_w8a8.tflite" "${output_model_path}/midas_quantized.tflite"
+            download_file "https://huggingface.co/qualcomm/HRNetPose/resolve/${model_version}/HRNetPose_w8a8.tflite" "${output_model_path}/hrnet_pose_quantized.tflite"
+            download_file "https://huggingface.co/qualcomm/QuickSRNetSmall/resolve/${model_version}/QuickSRNetSmall_w8a8.tflite" "${output_model_path}/quicksrnetsmall_quantized.tflite"
+            download_file "https://huggingface.co/qualcomm/Lightweight-Face-Detection/resolve/${model_version}/Lightweight-Face-Detection_w8a8.tflite" "${output_model_path}/face_det_lite_quantized.tflite"
+            download_file "https://huggingface.co/qualcomm/Facial-Landmark-Detection/resolve/${model_version}/Facial-Landmark-Detection_w8a8.tflite" "${output_model_path}/facemap_3dmm_quantized.tflite"
+
+        else
+
+            download_from_zip "https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/models/inception_v3/releases/${model_version}/inception_v3-tflite-w8a8.zip" "${output_model_path}/inception_v3_quantized.tflite"
+            download_from_zip "https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/models/deeplabv3_plus_mobilenet/releases/${model_version}/deeplabv3_plus_mobilenet-tflite-w8a8.zip" "${output_model_path}/deeplabv3_plus_mobilenet_quantized.tflite"
+            download_from_zip "https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/models/midas/releases/${model_version}/midas-tflite-w8a8.zip" "${output_model_path}/midas_quantized.tflite"
+            download_from_zip "https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/models/hrnet_pose/releases/${model_version}/hrnet_pose-tflite-w8a8.zip" "${output_model_path}/hrnet_pose_quantized.tflite"
+            download_from_zip "https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/models/quicksrnetsmall/releases/${model_version}/quicksrnetsmall-tflite-w8a8.zip" "${output_model_path}/quicksrnetsmall_quantized.tflite"
+            download_from_zip "https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/models/face_det_lite/releases/${model_version}/face_det_lite-tflite-w8a8.zip" "${output_model_path}/face_det_lite_quantized.tflite"
+            download_from_zip "https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/models/facemap_3dmm/releases/${model_version}/facemap_3dmm-tflite-w8a8.zip" "${output_model_path}/facemap_3dmm_quantized.tflite"
+
+        fi
+
+        #hardcoded tflite models
+        download_file "https://huggingface.co/qualcomm/Facial-Attribute-Detection/resolve/228624993581944d488f232ae50174795d489661/Facial-Attribute-Detection_w8a8.tflite" "${output_model_path}/face_attrib_net_quantized.tflite"
         download_file "https://huggingface.co/qualcomm/YamNet/resolve/4167a3af6245a2b611c9f7918fddefd8b0de52dc/YamNet.tflite" "${output_model_path}/yamnet.tflite"
         download_file "https://huggingface.co/qualcomm/Yolo-X/resolve/v0.30.5/Yolo-X_w8a8.tflite" "${output_model_path}/yolox_quantized.tflite"
 
         #dlc models
-        download_file "https://huggingface.co/qualcomm/Inception-v3/resolve/${model_version}/Inception-v3_w8a8.dlc" "${output_model_path}/inceptionv3.dlc"
-        download_file "https://huggingface.co/qualcomm/DeepLabV3-Plus-MobileNet/resolve/${model_version}/DeepLabV3-Plus-MobileNet_w8a8.dlc" "${output_model_path}/deeplabv3_plus_mobilenet.dlc"
-        download_file "https://huggingface.co/qualcomm/Midas-V2/resolve/${model_version}/Midas-V2_w8a8.dlc" "${output_model_path}/midasv2.dlc"
+        if awk "BEGIN {exit !($qairt_short_version < 2.43)}"; then
+
+            download_file "https://huggingface.co/qualcomm/Inception-v3/resolve/${model_version}/Inception-v3_w8a8.dlc" "${output_model_path}/inceptionv3.dlc"
+            download_file "https://huggingface.co/qualcomm/DeepLabV3-Plus-MobileNet/resolve/${model_version}/DeepLabV3-Plus-MobileNet_w8a8.dlc" "${output_model_path}/deeplabv3_plus_mobilenet.dlc"
+            download_file "https://huggingface.co/qualcomm/Midas-V2/resolve/${model_version}/Midas-V2_w8a8.dlc" "${output_model_path}/midasv2.dlc"
         
+        else
+
+            download_from_zip "https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/models/inception_v3/releases/${model_version}/inception_v3-qnn_dlc-w8a8.zip" "${output_model_path}/inceptionv3.dlc"
+            download_from_zip "https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/models/deeplabv3_plus_mobilenet/releases/${model_version}/deeplabv3_plus_mobilenet-qnn_dlc-w8a8.zip" "${output_model_path}/deeplabv3_plus_mobilenet.dlc"
+            download_from_zip "https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/models/midas/releases/${model_version}/midas-qnn_dlc-w8a8.zip" "${output_model_path}/midasv2.dlc"
+
+        fi
     fi
     
 }
@@ -385,7 +485,7 @@ main() {
     # Creates copies of the video1.mp4 file 
     copy_videos ${output_media_path} video1.mp4
 
-    echo "Model and Label files download successfully"
+    echo "Model and Label files downloaded successfully"
 }
 
 main "$@"
