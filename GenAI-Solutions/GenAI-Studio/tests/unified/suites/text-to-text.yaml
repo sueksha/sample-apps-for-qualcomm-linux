@@ -1,0 +1,658 @@
+meta:
+  service: text-to-text
+  base_url: http://{target_host}:8088
+  profile: lite
+  target_cases: 45
+
+variables:
+  target_host: 10.92.165.205
+  model_id: llama_v3_2_3b_instruct_ssd-genie-w4a16-qualcomm_qcs9075
+  large_prompt: "Large prompt validation case. Repeat token L many times: LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL end."
+  large_text_1000: "__GEN_WORDS_1000__"
+  gibberish_text_1000: "__GEN_GIBBERISH_1000__"
+  ttt_session_id: unified-ttt-session
+
+defaults:
+  timeout_s: 120
+
+cases:
+  - id: TTT-P01
+    kind: positive
+    name: Health endpoint
+    request:
+      method: GET
+      path: /health
+    expect:
+      statuses: [200]
+      json_keys: [status, model]
+
+  - id: TTT-P02
+    kind: positive
+    name: Model list endpoint
+    request:
+      method: GET
+      path: /v1/models
+    expect:
+      statuses: [200]
+      json_keys: [object, data]
+
+  - id: TTT-P03
+    kind: positive
+    name: Internal model list endpoint
+    request:
+      method: GET
+      path: /v1/internal/models
+    expect:
+      statuses: [200]
+      json_keys: [data]
+
+  - id: TTT-P04
+    kind: negative
+    name: Legacy process endpoint removed
+    request:
+      method: POST
+      path: /process
+      json:
+        prompt: Reply with token LEGACY_OK.
+    expect:
+      statuses: [404]
+
+  - id: TTT-P05
+    kind: positive
+    name: Reset model endpoint
+    request:
+      method: POST
+      path: /reset_model
+    expect:
+      statuses: [200]
+
+  - id: TTT-P06
+    kind: positive
+    name: Reload model endpoint
+    request:
+      method: POST
+      path: /reload_model
+      json:
+        system_prompt: You are concise.
+        max_tokens: 64
+    expect:
+      statuses: [200]
+
+  - id: TTT-P07
+    kind: positive
+    name: Chat completion basic
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: user
+            content: Reply with exactly TTT_OK_1
+        temperature: 0.0
+        max_tokens: 16
+        stream: false
+    expect:
+      statuses: [200]
+      json_keys: [object, choices.0.message.content]
+
+  - id: TTT-P08
+    kind: positive
+    name: Chat completion with system prompt
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: system
+            content: You are concise.
+          - role: user
+            content: Reply with exactly TTT_OK_2
+        temperature: 0.0
+        max_tokens: 16
+        stream: false
+    expect:
+      statuses: [200]
+      json_keys: [choices.0.message.content]
+
+  - id: TTT-P09
+    kind: positive
+    name: Chat completion stream
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: user
+            content: Stream one short sentence.
+        temperature: 0.0
+        max_tokens: 24
+        stream: true
+    expect:
+      statuses: [200]
+      body_contains: ["data:"]
+
+  - id: TTT-P10
+    kind: positive
+    name: Chat completion short max_tokens
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: user
+            content: Reply with one word only.
+        temperature: 0.0
+        max_tokens: 8
+        stream: false
+    expect:
+      statuses: [200]
+      json_keys: [choices.0.message.content]
+
+  - id: TTT-P11
+    kind: positive
+    name: Chat completion second variation
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: user
+            content: Reply with exactly TTT_OK_3
+        temperature: 0.0
+        max_tokens: 16
+        stream: false
+    expect:
+      statuses: [200]
+      json_keys: [choices.0.message.content]
+
+  - id: TTT-P12
+    kind: positive
+    name: Chat completion larger prompt
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: user
+            content: "{large_prompt}"
+        temperature: 0.0
+        max_tokens: 24
+        stream: false
+    expect:
+      statuses: [200]
+      json_keys: [choices.0.message.content]
+
+  - id: TTT-P13
+    kind: positive
+    name: Chat completion two-turn conversation
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: user
+            content: Say the word alpha.
+          - role: assistant
+            content: alpha
+          - role: user
+            content: Now say beta.
+        temperature: 0.0
+        max_tokens: 16
+        stream: false
+    expect:
+      statuses: [200]
+      json_keys: [choices.0.message.content]
+
+  - id: TTT-P14
+    kind: positive
+    name: Chat completion explicit n one
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: user
+            content: Reply with exactly TTT_OK_4
+        temperature: 0.0
+        max_tokens: 16
+        stream: false
+        n: 1
+    expect:
+      statuses: [200]
+      json_keys: [choices.0.message.content]
+
+  - id: TTT-P15
+    kind: positive
+    name: Chat completion punctuation payload
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: user
+            content: Respond with OK, followed by a period.
+        temperature: 0.0
+        max_tokens: 16
+        stream: false
+    expect:
+      statuses: [200]
+      json_keys: [choices.0.message.content]
+
+  - id: TTT-P16
+    kind: positive
+    name: Chat completion with generated 1000-word prompt
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: user
+            content: "{large_text_1000}"
+        temperature: 0.0
+        max_tokens: 64
+        stream: false
+    expect:
+      statuses: [200]
+      json_keys: [choices.0.message.content]
+      max_elapsed_ms: 180000
+
+  - id: TTT-P17
+    kind: positive
+    name: Chat completion with generated 1000-word gibberish prompt
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: user
+            content: "{gibberish_text_1000}"
+        temperature: 0.0
+        max_tokens: 64
+        stream: false
+    expect:
+      statuses: [200]
+      json_keys: [choices.0.message.content]
+
+  - id: TTT-P18
+    kind: positive
+    name: Chat completion stream with generated 1000-word prompt
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: user
+            content: "{large_text_1000}"
+        temperature: 0.0
+        max_tokens: 48
+        stream: true
+    expect:
+      statuses: [200]
+      body_contains: ["data:"]
+
+  - id: TTT-P19
+    kind: positive
+    name: Chat completion accepts mixed punctuation payload
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: user
+            content: "%%% ??? !!! ### @@ word-check"
+        temperature: 0.0
+        max_tokens: 24
+        stream: false
+    expect:
+      statuses: [200]
+      json_keys: [choices.0.message.content]
+
+  - id: TTT-P20
+    kind: positive
+    name: Stored completion create
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: user
+            content: Store this completion object.
+        stream: false
+        max_tokens: 24
+        store: true
+    capture:
+      ttt_completion_id: json:id
+    expect:
+      statuses: [200]
+      json_keys: [id, choices.0.message.content]
+
+  - id: TTT-P21
+    kind: positive
+    name: Stored completion fetch by id
+    requires_cases: [TTT-P20]
+    request:
+      method: GET
+      path: /v1/chat/completions/{ttt_completion_id}
+    expect:
+      statuses: [200]
+      json_keys: [id]
+
+  - id: TTT-P22
+    kind: positive
+    name: Stored completion messages fetch
+    requires_cases: [TTT-P20]
+    request:
+      method: GET
+      path: /v1/chat/completions/{ttt_completion_id}/messages
+    expect:
+      statuses: [200]
+
+  - id: TTT-P23
+    kind: positive
+    name: Stored completion delete
+    requires_cases: [TTT-P20]
+    request:
+      method: DELETE
+      path: /v1/chat/completions/{ttt_completion_id}
+    expect:
+      statuses: [200]
+
+  - id: TTT-N01
+    kind: negative
+    name: Unknown endpoint GET
+    request:
+      method: GET
+      path: /unknown
+    expect:
+      statuses: [404]
+
+  - id: TTT-N02
+    kind: negative
+    name: Unknown endpoint POST
+    request:
+      method: POST
+      path: /unknown
+      json: {}
+    expect:
+      statuses: [404]
+
+  - id: TTT-N03
+    kind: negative
+    name: Chat wrong method PUT
+    request:
+      method: PUT
+      path: /v1/chat/completions
+      json: {}
+    expect:
+      statuses: [405]
+
+  - id: TTT-N04
+    kind: negative
+    name: Chat wrong method DELETE
+    request:
+      method: DELETE
+      path: /v1/chat/completions
+    expect:
+      statuses: [405]
+
+  - id: TTT-N05
+    kind: negative
+    name: Chat wrong method PATCH
+    request:
+      method: PATCH
+      path: /v1/chat/completions
+      json: {}
+    expect:
+      statuses: [405]
+
+  - id: TTT-N06
+    kind: negative
+    name: Unknown model id
+    request:
+      method: GET
+      path: /v1/models/nonexistent-model
+    expect:
+      statuses: [404]
+
+  - id: TTT-N07
+    kind: negative
+    name: Chat malformed JSON
+    request:
+      method: POST
+      path: /v1/chat/completions
+      headers:
+        Content-Type: application/json
+      raw_body: "{not valid json}"
+    expect:
+      statuses: [400]
+      json_keys: [error]
+
+  - id: TTT-N08
+    kind: negative
+    name: Chat empty JSON body
+    request:
+      method: POST
+      path: /v1/chat/completions
+      headers:
+        Content-Type: application/json
+      raw_body: ""
+    expect:
+      statuses: [400]
+      json_keys: [error]
+
+  - id: TTT-N09
+    kind: negative
+    name: Chat missing messages
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+    expect:
+      statuses: [400]
+      json_keys: [error]
+
+  - id: TTT-N10
+    kind: negative
+    name: Chat messages wrong type
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages: hello
+    expect:
+      statuses: [400]
+      json_keys: [error]
+
+  - id: TTT-N11
+    kind: negative
+    name: Chat unsupported tools param
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: user
+            content: hello
+        tools:
+          - type: function
+    expect:
+      statuses: [400]
+      json_keys: [error]
+
+  - id: TTT-N12
+    kind: negative
+    name: Stream with n greater than one
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: user
+            content: hello
+        stream: true
+        n: 2
+    expect:
+      statuses: [400]
+      json_keys: [error]
+
+  - id: TTT-N13
+    kind: negative
+    name: Chat messages empty list
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages: []
+    expect:
+      statuses: [400]
+      json_keys: [error]
+
+  - id: TTT-N14
+    kind: negative
+    name: Chat unsupported response format object
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: user
+            content: hello
+        response_format:
+          type: json_schema
+    expect:
+      statuses: [400]
+      json_keys: [error]
+
+  - id: TTT-N15
+    kind: negative
+    name: Chat negative max tokens
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: user
+            content: hello
+        max_tokens: -1
+    expect:
+      statuses: [400]
+      json_keys: [error]
+
+  - id: TTT-N16
+    kind: negative
+    name: Stored completion fetch after delete
+    requires_cases: [TTT-P23]
+    request:
+      method: GET
+      path: /v1/chat/completions/{ttt_completion_id}
+    expect:
+      statuses: [404]
+
+  - id: TTT-N17
+    kind: negative
+    name: Chat overflow n value
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: user
+            content: hi
+        n: 9223372036854775807
+    expect:
+      statuses: [400]
+      json_keys: [error]
+
+  - id: TTT-N18
+    kind: negative
+    name: Chat stream null rejected
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: user
+            content: hi
+        stream: null
+    expect:
+      statuses: [400]
+      json_keys: [error]
+
+  - id: TTT-N19
+    kind: negative
+    name: Chat system-only message rejected
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: system
+            content: You are helpful.
+    expect:
+      statuses: [400]
+      json_keys: [error]
+
+  - id: TTT-N20
+    kind: negative
+    name: Chat user empty content rejected
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - role: user
+            content: ""
+    expect:
+      statuses: [400]
+      json_keys: [error]
+
+  - id: TTT-N21
+    kind: negative
+    name: Chat messages array with null entry rejected
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: "{model_id}"
+        messages:
+          - null
+    expect:
+      statuses: [400]
+      json_keys: [error]
+
+  - id: TTT-N22
+    kind: negative
+    name: Chat body is array not object
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        - bad
+        - payload
+    expect:
+      statuses: [400]

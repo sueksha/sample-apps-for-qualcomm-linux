@@ -1,0 +1,626 @@
+meta:
+  service: orchestrator
+  base_url: http://{target_host}:8090
+  profile: lite
+  target_cases: 45
+
+variables:
+  target_host: 10.92.165.205
+  tg_url: http://{target_host}:8088/health
+  stt_url: http://{target_host}:8081/health
+  tts_url: http://{target_host}:8083/health
+  img_url: http://{target_host}:8084/health
+  i2t_url: http://{target_host}:8080/health
+  model_id: qwen2.5-vl-7b-instruct
+  session_id: unified-orc-i2t-session
+  tiny_png_data_url: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+tmn8AAAAASUVORK5CYII="
+  large_text_1000: "__GEN_WORDS_1000__"
+  gibberish_text_1000: "__GEN_GIBBERISH_1000__"
+
+defaults:
+  timeout_s: 180
+
+dependencies:
+  - name: tg
+    method: GET
+    url: "{tg_url}"
+    statuses: [200]
+    timeout_s: 10
+  - name: stt
+    method: GET
+    url: "{stt_url}"
+    statuses: [200]
+    timeout_s: 10
+  - name: tts
+    method: GET
+    url: "{tts_url}"
+    statuses: [200]
+    timeout_s: 10
+  - name: img
+    method: GET
+    url: "{img_url}"
+    statuses: [200]
+    timeout_s: 10
+  - name: i2t
+    method: GET
+    url: "{i2t_url}"
+    statuses: [200]
+    timeout_s: 10
+
+cases:
+  - id: ORC-P01
+    kind: positive
+    name: UI index route
+    request:
+      method: GET
+      path: /
+    expect:
+      statuses: [200]
+      content_type_contains: text/html
+
+  - id: ORC-P02
+    kind: positive
+    name: Status endpoint
+    request:
+      method: GET
+      path: /api/status
+    expect:
+      statuses: [200]
+      json_keys: [services]
+
+  - id: ORC-P03
+    kind: positive
+    name: TG models proxy
+    requires: [tg]
+    request:
+      method: GET
+      path: /api/tg/models
+    expect:
+      status_class: 2xx
+
+  - id: ORC-P04
+    kind: positive
+    name: STT models proxy
+    requires: [stt]
+    request:
+      method: GET
+      path: /api/stt/models
+    expect:
+      status_class: 2xx
+
+  - id: ORC-P05
+    kind: positive
+    name: STT languages proxy
+    requires: [stt]
+    request:
+      method: GET
+      path: /api/stt/languages
+    expect:
+      status_class: 2xx
+
+  - id: ORC-P06
+    kind: positive
+    name: Image models proxy
+    requires: [img]
+    request:
+      method: GET
+      path: /api/img/models
+    expect:
+      status_class: 2xx
+
+  - id: ORC-P07
+    kind: positive
+    name: Image params proxy
+    requires: [img]
+    request:
+      method: GET
+      path: /api/img/params
+    expect:
+      status_class: 2xx
+
+  - id: ORC-P08
+    kind: positive
+    name: I2T models proxy
+    requires: [i2t]
+    request:
+      method: GET
+      path: /api/i2t/models
+    expect:
+      status_class: 2xx
+
+  - id: ORC-P09
+    kind: positive
+    name: TG reset proxy
+    requires: [tg]
+    request:
+      method: POST
+      path: /api/tg/reset
+    expect:
+      status_class: 2xx
+
+  - id: ORC-P10
+    kind: positive
+    name: I2T reset proxy
+    requires: [i2t]
+    request:
+      method: POST
+      path: /api/i2t/reset
+      json: {}
+    expect:
+      status_class: 2xx
+
+  - id: ORC-P11
+    kind: positive
+    name: Unified chat completions proxy
+    requires: [tg]
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: genie
+        messages:
+          - role: user
+            content: Reply with one word orchestrator.
+        stream: false
+        max_tokens: 24
+    expect:
+      status_class: 2xx
+      json_keys: [choices]
+
+  - id: ORC-P12
+    kind: positive
+    name: Unified transcriptions proxy
+    requires: [stt]
+    request:
+      method: POST
+      path: /v1/audio/transcriptions
+      form:
+        model: whisper-1
+      files:
+        - field: file
+          fixture: tests/unified/fixtures/stt/0.wav
+          filename: 0.wav
+          content_type: audio/wav
+    expect:
+      status_class: 2xx
+
+  - id: ORC-P13
+    kind: positive
+    name: STT realtime session create proxy
+    requires: [stt]
+    request:
+      method: POST
+      path: /api/stt/realtime/sessions
+      json: {}
+    capture:
+      orc_sid: json:id
+    expect:
+      status_class: 2xx
+      json_keys: [id]
+
+  - id: ORC-P14
+    kind: positive
+    name: STT realtime session get proxy
+    requires: [stt]
+    requires_cases: [ORC-P13]
+    request:
+      method: GET
+      path: /api/stt/realtime/sessions/{orc_sid}
+    expect:
+      status_class: 2xx
+
+  - id: ORC-P15
+    kind: positive
+    name: STT realtime session delete proxy
+    requires: [stt]
+    requires_cases: [ORC-P13]
+    request:
+      method: DELETE
+      path: /api/stt/realtime/sessions/{orc_sid}
+    expect:
+      status_class: 2xx
+
+  - id: ORC-P16
+    kind: positive
+    name: Unified chat completions stream proxy
+    requires: [tg]
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: genie
+        messages:
+          - role: user
+            content: Stream one short response.
+        stream: true
+        max_tokens: 24
+    expect:
+      status_class: 2xx
+      body_contains: ["data:"]
+
+  - id: ORC-P17
+    kind: positive
+    name: Unified chat completions with 1000-word prompt
+    requires: [tg]
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: genie
+        messages:
+          - role: user
+            content: "{large_text_1000}"
+        stream: false
+        max_tokens: 64
+    expect:
+      status_class: 2xx
+      json_keys: [choices]
+      max_elapsed_ms: 180000
+
+  - id: ORC-P18
+    kind: positive
+    name: Unified responses I2T turn one
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      headers:
+        X-Session-Id: "{session_id}"
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: Describe this image briefly.
+              - type: input_image
+                image_url: "{tiny_png_data_url}"
+        stream: false
+        max_output_tokens: 96
+    expect:
+      status_class: 2xx
+      json_keys: [output_text]
+
+  - id: ORC-P19
+    kind: positive
+    name: Unified responses I2T turn two
+    requires: [i2t]
+    requires_cases: [ORC-P18]
+    request:
+      method: POST
+      path: /v1/responses
+      headers:
+        X-Session-Id: "{session_id}"
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: Continue in one short sentence.
+        stream: false
+        max_output_tokens: 64
+    expect:
+      status_class: 2xx
+      json_keys: [output_text]
+
+  - id: ORC-P20
+    kind: positive
+    name: Unified image generation with 1000-word prompt
+    requires: [img]
+    request:
+      method: POST
+      path: /v1/images/generations
+      json:
+        model: stable-diffusion-2-1
+        prompt: "{large_text_1000}"
+        response_format: b64_json
+        n: 1
+        size: 512x512
+    expect:
+      status_class: 2xx
+      json_keys: [data]
+
+  - id: ORC-P21
+    kind: positive
+    name: Unified speech synthesis with 1000-word text
+    requires: [tts]
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: tts-1
+        voice: alloy
+        input: "{large_text_1000}"
+        response_format: wav
+    expect:
+      status_class: 2xx
+      content_type_contains: audio
+      min_body_bytes: 64
+
+  - id: ORC-P22
+    kind: positive
+    name: Unified audio transcription long wav
+    requires: [stt]
+    request:
+      method: POST
+      path: /v1/audio/transcriptions
+      form:
+        model: whisper-1
+      files:
+        - field: file
+          fixture: tests/unified/fixtures/stt/long_60s_16k.wav
+          filename: long_60s_16k.wav
+          content_type: audio/wav
+    expect:
+      status_class: 2xx
+      max_elapsed_ms: 240000
+
+  - id: ORC-P23
+    kind: positive
+    name: Unified chat completions gibberish 1000-word prompt
+    requires: [tg]
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: genie
+        messages:
+          - role: user
+            content: "{gibberish_text_1000}"
+        stream: false
+        max_tokens: 64
+    expect:
+      status_class: 2xx
+
+  - id: ORC-N01
+    kind: negative
+    name: Unknown route
+    request:
+      method: GET
+      path: /api/route-not-found
+    expect:
+      statuses: [404]
+
+  - id: ORC-N02
+    kind: negative
+    name: Status wrong method
+    request:
+      method: POST
+      path: /api/status
+    expect:
+      statuses: [405]
+
+  - id: ORC-N03
+    kind: negative
+    name: TG chat invalid JSON body
+    request:
+      method: POST
+      path: /api/tg/chat
+      headers:
+        Content-Type: application/json
+      raw_body: "{bad json"
+    expect:
+      statuses: [400]
+
+  - id: ORC-N04
+    kind: negative
+    name: TG chat body is not object
+    request:
+      method: POST
+      path: /api/tg/chat
+      json:
+        - invalid
+    expect:
+      statuses: [400]
+
+  - id: ORC-N05
+    kind: negative
+    name: TG load-model invalid JSON body
+    request:
+      method: POST
+      path: /api/tg/load-model
+      headers:
+        Content-Type: application/json
+      raw_body: "{bad json"
+    expect:
+      statuses: [400]
+
+  - id: ORC-N06
+    kind: negative
+    name: TG load-model body is not object
+    request:
+      method: POST
+      path: /api/tg/load-model
+      json:
+        - invalid
+    expect:
+      statuses: [400]
+
+  - id: ORC-N07
+    kind: negative
+    name: Audio transcriptions wrong method
+    request:
+      method: GET
+      path: /v1/audio/transcriptions
+    expect:
+      statuses: [405]
+
+  - id: ORC-N08
+    kind: negative
+    name: Image generations wrong method
+    request:
+      method: GET
+      path: /v1/images/generations
+    expect:
+      statuses: [405]
+
+  - id: ORC-N09
+    kind: negative
+    name: Speech synthesis wrong method
+    request:
+      method: GET
+      path: /v1/audio/speech
+    expect:
+      statuses: [405]
+
+  - id: ORC-N10
+    kind: negative
+    name: Image generate route wrong method
+    request:
+      method: PATCH
+      path: /api/img/generate
+    expect:
+      statuses: [405]
+
+  - id: ORC-N11
+    kind: negative
+    name: STT transcribe missing file
+    request:
+      method: POST
+      path: /api/stt/transcribe
+      form:
+        response_format: verbose_json
+    expect:
+      status_class: non-2xx
+
+  - id: ORC-N12
+    kind: negative
+    name: Removed wrapper route /api/i2t/vision
+    request:
+      method: POST
+      path: /api/i2t/vision
+      headers:
+        Content-Type: application/json
+      raw_body: "{invalid json"
+    expect:
+      statuses: [404, 405]
+
+  - id: ORC-N13
+    kind: negative
+    name: STT realtime sessions wrong method
+    request:
+      method: GET
+      path: /api/stt/realtime/sessions
+    expect:
+      status_class: non-2xx
+
+  - id: ORC-N14
+    kind: negative
+    name: Removed wrapper route /api/i2t/chat
+    request:
+      method: POST
+      path: /api/i2t/chat
+      headers:
+        Content-Type: application/json
+      raw_body: "{invalid json"
+    expect:
+      statuses: [404, 405]
+
+  - id: ORC-N15
+    kind: negative
+    name: Chat completions rejects I2T payload
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: genie
+        messages:
+          - role: user
+            content:
+              - type: text
+                text: describe this image
+              - type: image_url
+                image_url:
+                  url: data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+tmn8AAAAASUVORK5CYII=
+        stream: false
+    expect:
+      statuses: [400]
+      body_contains: [Image-To-Text is exposed only via POST /v1/responses]
+
+  - id: ORC-N16
+    kind: negative
+    name: Unified responses missing input
+    request:
+      method: POST
+      path: /v1/responses
+      json:
+        model: "{model_id}"
+    expect:
+      status_class: non-2xx
+
+  - id: ORC-N17
+    kind: negative
+    name: Unified responses stream wrong type
+    request:
+      method: POST
+      path: /v1/responses
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: hello
+        stream: "false"
+    expect:
+      status_class: non-2xx
+
+  - id: ORC-N18
+    kind: negative
+    name: Unified chat completions messages wrong type
+    request:
+      method: POST
+      path: /v1/chat/completions
+      json:
+        model: genie
+        messages: invalid
+    expect:
+      status_class: non-2xx
+
+  - id: ORC-N19
+    kind: negative
+    name: Unified speech synthesis missing input
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: tts-1
+        voice: alloy
+    expect:
+      status_class: non-2xx
+
+  - id: ORC-N20
+    kind: negative
+    name: Unified audio transcription missing file
+    request:
+      method: POST
+      path: /v1/audio/transcriptions
+      form:
+        model: whisper-1
+    expect:
+      status_class: non-2xx
+
+  - id: ORC-N21
+    kind: negative
+    name: Unified image generation missing prompt
+    request:
+      method: POST
+      path: /v1/images/generations
+      json:
+        model: stable-diffusion-2-1
+        response_format: b64_json
+    expect:
+      status_class: non-2xx
+
+  - id: ORC-N22
+    kind: negative
+    name: TG chat proxy body as array
+    request:
+      method: POST
+      path: /api/tg/chat
+      json:
+        - invalid
+        - payload
+    expect:
+      statuses: [400]

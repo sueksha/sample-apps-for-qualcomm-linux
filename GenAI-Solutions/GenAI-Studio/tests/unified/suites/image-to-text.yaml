@@ -1,0 +1,922 @@
+meta:
+  service: image-to-text
+  base_url: http://{target_host}:8080
+  profile: unified-usecases
+  target_cases: 45
+
+variables:
+  target_host: 10.92.165.205
+  orch_base_url: http://{target_host}:8090
+  model_id: qwen2.5-vl-7b-instruct
+  session_id: unified-i2t-session
+  tiny_png_data_url: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+tmn8AAAAASUVORK5CYII="
+  bad_data_url: "data:text/plain;base64,SGVsbG8="
+  internet_image_url: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/Felis_catus-cat_on_snow.jpg/640px-Felis_catus-cat_on_snow.jpg"
+  large_text_1000: "__GEN_WORDS_1000__"
+  gibberish_text_1000: "__GEN_GIBBERISH_1000__"
+
+defaults:
+  timeout_s: 240
+  transient_retry_attempts: 2
+  transient_retry_sleep_s: 2.0
+
+dependencies:
+  - name: i2t
+    method: GET
+    url: "{base_url}/health"
+    statuses: [200]
+    timeout_s: 10
+  - name: orch
+    method: GET
+    url: "{orch_base_url}/api/status"
+    statuses: [200]
+    timeout_s: 10
+  - name: internet_image
+    method: GET
+    url: "{internet_image_url}"
+    statuses: [200]
+    timeout_s: 20
+
+cases:
+  - id: I2T-P01
+    kind: positive
+    name: Direct health endpoint
+    requires: [i2t]
+    request:
+      method: GET
+      path: /health
+    expect:
+      statuses: [200]
+      json_keys: [status]
+
+  - id: I2T-P02
+    kind: positive
+    name: Direct model list endpoint
+    requires: [i2t]
+    request:
+      method: GET
+      path: /v1/models
+    expect:
+      statuses: [200]
+      json_keys: [data]
+
+  - id: I2T-P03
+    kind: positive
+    name: Direct session reset
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/session/reset
+      json: {}
+    expect:
+      statuses: [200]
+
+  - id: I2T-P04
+    kind: positive
+    name: Direct responses text non-stream
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: Reply with exactly I2T_OK_1.
+        max_output_tokens: 48
+        stream: false
+    expect:
+      statuses: [200]
+      json_keys: [output_text, x_timing]
+
+  - id: I2T-P05
+    kind: positive
+    name: Direct responses text stream
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      headers:
+        Accept: text/event-stream
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: Stream a short answer.
+        max_output_tokens: 64
+        stream: true
+    expect:
+      statuses: [200]
+      body_contains: [response.output_text.delta, "[DONE]"]
+
+  - id: I2T-P06
+    kind: positive
+    name: Direct responses system plus user text
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      json:
+        model: "{model_id}"
+        input:
+          - role: system
+            content:
+              - type: input_text
+                text: You are concise.
+          - role: user
+            content:
+              - type: input_text
+                text: Answer in one sentence.
+        max_output_tokens: 96
+        stream: false
+    expect:
+      statuses: [200]
+      json_keys: [output_text]
+
+  - id: I2T-P07
+    kind: positive
+    name: Direct responses with explicit session turn one
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      headers:
+        X-Session-Id: "{session_id}"
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: Session continuity turn one.
+        max_output_tokens: 64
+        stream: false
+    expect:
+      statuses: [200]
+      json_keys: [output_text]
+
+  - id: I2T-P08
+    kind: positive
+    name: Direct responses with same session turn two
+    requires: [i2t]
+    requires_cases: [I2T-P07]
+    request:
+      method: POST
+      path: /v1/responses
+      headers:
+        X-Session-Id: "{session_id}"
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: Session continuity turn two.
+        max_output_tokens: 64
+        stream: false
+    expect:
+      statuses: [200]
+      json_keys: [output_text]
+
+  - id: I2T-P09
+    kind: positive
+    name: Direct responses vision non-stream with data URL
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      headers:
+        X-Session-Id: "{session_id}"
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: Describe this image in one short sentence.
+              - type: input_image
+                image_url: "{tiny_png_data_url}"
+        max_output_tokens: 96
+        stream: false
+    expect:
+      statuses: [200]
+      json_keys: [output_text, x_timing]
+
+  - id: I2T-P10
+    kind: positive
+    name: Direct responses vision stream with data URL
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      headers:
+        Accept: text/event-stream
+        X-Session-Id: "{session_id}"
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: Stream two short details from this image.
+              - type: input_image
+                image_url: "{tiny_png_data_url}"
+        max_output_tokens: 96
+        stream: true
+    expect:
+      statuses: [200]
+      body_contains: [response.output_text.delta, "[DONE]"]
+
+  - id: I2T-P11
+    kind: positive
+    name: Orchestrator responses vision non-stream
+    requires: [orch]
+    request:
+      method: POST
+      url: "{orch_base_url}/v1/responses"
+      headers:
+        X-Session-Id: "{session_id}"
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: Describe this image briefly.
+              - type: input_image
+                image_url: "{tiny_png_data_url}"
+        stream: false
+        max_output_tokens: 96
+    expect:
+      statuses: [200]
+      json_keys: [output_text]
+
+  - id: I2T-P12
+    kind: positive
+    name: Orchestrator responses follow-up same session
+    requires: [orch]
+    requires_cases: [I2T-P11]
+    request:
+      method: POST
+      url: "{orch_base_url}/v1/responses"
+      headers:
+        X-Session-Id: "{session_id}"
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: Continue the previous answer in one short sentence.
+        stream: false
+        max_output_tokens: 64
+    expect:
+      statuses: [200]
+      json_keys: [output_text]
+
+  - id: I2T-P13
+    kind: positive
+    name: Orchestrator responses vision stream
+    requires: [orch]
+    request:
+      method: POST
+      url: "{orch_base_url}/v1/responses"
+      headers:
+        Accept: text/event-stream
+        X-Session-Id: "{session_id}"
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: Stream a short image summary.
+              - type: input_image
+                image_url: "{tiny_png_data_url}"
+        stream: true
+        max_output_tokens: 96
+    expect:
+      statuses: [200]
+      body_contains: [response.output_text.delta, "[DONE]"]
+
+  - id: I2T-P14
+    kind: positive
+    name: Orchestrator responses follow-up stream
+    requires: [orch]
+    requires_cases: [I2T-P13]
+    request:
+      method: POST
+      url: "{orch_base_url}/v1/responses"
+      headers:
+        Accept: text/event-stream
+        X-Session-Id: "{session_id}"
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: Stream follow-up answer in one sentence.
+        stream: true
+        max_output_tokens: 64
+    expect:
+      statuses: [200]
+      body_contains: [response.output_text.delta, "[DONE]"]
+
+  - id: I2T-P15
+    kind: positive
+    name: Orchestrator responses default session text
+    requires: [orch]
+    request:
+      method: POST
+      url: "{orch_base_url}/v1/responses"
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: Default session path check.
+        stream: false
+        max_output_tokens: 64
+    expect:
+      statuses: [200]
+      json_keys: [output_text]
+
+  - id: I2T-P16
+    kind: positive
+    name: Direct responses internet image semantic check
+    requires: [i2t, internet_image]
+    request:
+      method: POST
+      path: /v1/responses
+      headers:
+        X-Session-Id: "{session_id}"
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: What animal is shown in this image?
+              - type: input_image
+                image_url: "{internet_image_url}"
+        stream: false
+        max_output_tokens: 96
+    expect:
+      statuses: [200]
+      json_keys: [output_text]
+      json_path_contains_any_ci:
+        - path: output_text
+          any_keywords: [cat, feline, kitten]
+          min_keywords: 1
+
+  - id: I2T-P17
+    kind: positive
+    name: Orchestrator responses internet image semantic check
+    requires: [orch, internet_image]
+    request:
+      method: POST
+      url: "{orch_base_url}/v1/responses"
+      headers:
+        X-Session-Id: "{session_id}"
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: Identify the main subject in this image.
+              - type: input_image
+                image_url: "{internet_image_url}"
+        stream: false
+        max_output_tokens: 96
+    expect:
+      statuses: [200]
+      json_keys: [output_text]
+      json_path_contains_any_ci:
+        - path: output_text
+          any_keywords: [cat, feline, kitten]
+          min_keywords: 1
+
+  - id: I2T-P18
+    kind: positive
+    name: Direct responses rejects 1000-word prompt with image gracefully
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      headers:
+        X-Session-Id: "{session_id}"
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: "{large_text_1000}"
+              - type: input_image
+                image_url: "{tiny_png_data_url}"
+        stream: false
+        max_output_tokens: 96
+    expect:
+      statuses: [400]
+      body_contains: [context_length_exceeded]
+      max_elapsed_ms: 240000
+
+  - id: I2T-P19
+    kind: positive
+    name: Direct responses rejects 1000-word gibberish prompt with image gracefully
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      headers:
+        X-Session-Id: "{session_id}"
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: "{gibberish_text_1000}"
+              - type: input_image
+                image_url: "{tiny_png_data_url}"
+        stream: false
+        max_output_tokens: 96
+    expect:
+      statuses: [400]
+      body_contains: [context_length_exceeded]
+
+  - id: I2T-P20
+    kind: positive
+    name: Direct responses multi-turn with internet image turn one
+    requires: [i2t, internet_image]
+    request:
+      method: POST
+      path: /v1/responses
+      headers:
+        X-Session-Id: "{session_id}"
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: Describe this image in one sentence.
+              - type: input_image
+                image_url: "{internet_image_url}"
+        stream: false
+        max_output_tokens: 96
+    expect:
+      statuses: [200]
+      json_keys: [output_text]
+
+  - id: I2T-P21
+    kind: positive
+    name: Direct responses multi-turn with internet image turn two
+    requires: [i2t]
+    requires_cases: [I2T-P20]
+    request:
+      method: POST
+      path: /v1/responses
+      headers:
+        X-Session-Id: "{session_id}"
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: Continue with one more detail in short form.
+        stream: false
+        max_output_tokens: 64
+    expect:
+      statuses: [200]
+      json_keys: [output_text]
+
+  - id: I2T-P22
+    kind: positive
+    name: Orchestrator responses rejects 1000-word prompt with image gracefully
+    requires: [orch]
+    request:
+      method: POST
+      url: "{orch_base_url}/v1/responses"
+      headers:
+        X-Session-Id: "{session_id}"
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: "{large_text_1000}"
+              - type: input_image
+                image_url: "{tiny_png_data_url}"
+        stream: false
+        max_output_tokens: 96
+    expect:
+      statuses: [400]
+      body_contains: [context_length_exceeded]
+
+  - id: I2T-P23
+    kind: positive
+    name: Orchestrator responses rejects 1000-word gibberish prompt with image gracefully
+    requires: [orch]
+    request:
+      method: POST
+      url: "{orch_base_url}/v1/responses"
+      headers:
+        X-Session-Id: "{session_id}"
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: "{gibberish_text_1000}"
+              - type: input_image
+                image_url: "{tiny_png_data_url}"
+        stream: false
+        max_output_tokens: 96
+    expect:
+      statuses: [400]
+      body_contains: [context_length_exceeded]
+
+  - id: I2T-N01
+    kind: negative
+    name: Direct responses invalid JSON
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      headers:
+        Content-Type: application/json
+      raw_body: "{"
+    expect:
+      statuses: [400]
+      body_contains: [Invalid JSON]
+
+  - id: I2T-N02
+    kind: negative
+    name: Direct responses missing input
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      json:
+        model: "{model_id}"
+        stream: false
+    expect:
+      statuses: [400]
+      body_contains: ["'input' array is required"]
+
+  - id: I2T-N03
+    kind: negative
+    name: Direct responses empty input array
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      json:
+        model: "{model_id}"
+        input: []
+        stream: false
+    expect:
+      statuses: [400]
+      body_contains: [non-empty]
+
+  - id: I2T-N04
+    kind: negative
+    name: Direct responses stream must be boolean
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: hello
+        stream: "true"
+    expect:
+      statuses: [400]
+      body_contains: ["'stream' must be a boolean"]
+
+  - id: I2T-N05
+    kind: negative
+    name: Direct responses unsupported content type
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_audio
+                text: hello
+        stream: false
+    expect:
+      statuses: [400]
+      body_contains: [unsupported input content type]
+
+  - id: I2T-N06
+    kind: negative
+    name: Direct responses input_image missing image_url
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: describe
+              - type: input_image
+                image_url: {}
+        stream: false
+    expect:
+      statuses: [400]
+      body_contains: [input_image requires]
+
+  - id: I2T-N07
+    kind: negative
+    name: Direct responses reject http image_url
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: describe
+              - type: input_image
+                image_url: "http://example.com/image.png"
+        stream: false
+    expect:
+      statuses: [400]
+      body_contains: ["Only https:// and data:"]
+
+  - id: I2T-N08
+    kind: negative
+    name: Direct responses reject unsupported data mime
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: describe
+              - type: input_image
+                image_url: "{bad_data_url}"
+        stream: false
+    expect:
+      statuses: [400]
+      body_contains: [image_url preprocessing failed]
+
+  - id: I2T-N09
+    kind: negative
+    name: Direct responses reject pixel_values_path
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: hello
+        pixel_values_path: /tmp/pv.raw
+        stream: false
+    expect:
+      statuses: [400]
+      body_contains: ["'pixel_values_path' is not supported"]
+
+  - id: I2T-N10
+    kind: negative
+    name: Direct responses GET not allowed
+    requires: [i2t]
+    request:
+      method: GET
+      path: /v1/responses
+    expect:
+      statuses: [405]
+
+  - id: I2T-N11
+    kind: negative
+    name: Direct responses PUT not allowed
+    requires: [i2t]
+    request:
+      method: PUT
+      path: /v1/responses
+    expect:
+      statuses: [405]
+
+  - id: I2T-N12
+    kind: negative
+    name: Orchestrator responses missing input
+    requires: [orch]
+    request:
+      method: POST
+      url: "{orch_base_url}/v1/responses"
+      json:
+        model: "{model_id}"
+        stream: false
+    expect:
+      statuses: [400]
+      body_contains: ["'input' array is required"]
+
+  - id: I2T-N13
+    kind: negative
+    name: Orchestrator responses rejects legacy messages payload
+    requires: [orch]
+    request:
+      method: POST
+      url: "{orch_base_url}/v1/responses"
+      json:
+        messages:
+          - role: user
+            content: Describe this image.
+        stream: false
+    expect:
+      statuses: [400]
+      body_contains: ["'input' array is required"]
+
+  - id: I2T-N14
+    kind: negative
+    name: Orchestrator chat rejects I2T payload
+    requires: [orch]
+    request:
+      method: POST
+      url: "{orch_base_url}/v1/chat/completions"
+      json:
+        model: genie
+        messages:
+          - role: user
+            content:
+              - type: text
+                text: describe this image
+              - type: image_url
+                image_url:
+                  url: "{tiny_png_data_url}"
+        stream: false
+    expect:
+      statuses: [400]
+      body_contains: ["Image-To-Text is exposed only via POST /v1/responses"]
+
+  - id: I2T-N15
+    kind: negative
+    name: Removed wrapper route /api/i2t/vision
+    requires: [orch]
+    request:
+      method: POST
+      url: "{orch_base_url}/api/i2t/vision"
+      json: {}
+    expect:
+      statuses: [404, 405]
+
+  - id: I2T-N16
+    kind: negative
+    name: Direct responses invalid https image url host
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: describe
+              - type: input_image
+                image_url: "https://invalid-hostname-for-unified-suite.invalid/image.png"
+        stream: false
+    expect:
+      status_class: non-2xx
+
+  - id: I2T-N17
+    kind: negative
+    name: Direct responses reject file scheme image_url
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: describe
+              - type: input_image
+                image_url: "file:///tmp/image.png"
+        stream: false
+    expect:
+      status_class: non-2xx
+
+  - id: I2T-N18
+    kind: negative
+    name: Direct responses content must be array
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content: "this should be array content"
+        stream: false
+    expect:
+      status_class: non-2xx
+
+  - id: I2T-N19
+    kind: negative
+    name: Direct responses input_text missing text field
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                value: hello
+        stream: false
+    expect:
+      status_class: non-2xx
+
+  - id: I2T-N20
+    kind: negative
+    name: Orchestrator responses stream wrong type
+    requires: [orch]
+    request:
+      method: POST
+      url: "{orch_base_url}/v1/responses"
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: hello
+        stream: "false"
+    expect:
+      status_class: non-2xx
+
+  - id: I2T-N21
+    kind: negative
+    name: Orchestrator responses missing model
+    requires: [orch]
+    request:
+      method: POST
+      url: "{orch_base_url}/v1/responses"
+      json:
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: hello
+    expect:
+      status_class: non-2xx
+
+  - id: I2T-N22
+    kind: negative
+    name: Direct responses max_output_tokens wrong type
+    requires: [i2t]
+    request:
+      method: POST
+      path: /v1/responses
+      json:
+        model: "{model_id}"
+        input:
+          - role: user
+            content:
+              - type: input_text
+                text: hello
+        max_output_tokens: bad
+        stream: false
+    expect:
+      status_class: non-2xx

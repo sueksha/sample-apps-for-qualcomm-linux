@@ -1,0 +1,17 @@
+# Image-to-Text build context exclusions
+# Only src/ and run.sh are needed inside Docker.
+
+.git
+.gitignore
+.gitattributes
+README.md
+readme_assets/
+test_i2t_fix.py
+
+# Build artifacts
+src/build/
+src/third_party/
+
+# Scripts (keep only run.sh)
+*.sh
+!run.sh

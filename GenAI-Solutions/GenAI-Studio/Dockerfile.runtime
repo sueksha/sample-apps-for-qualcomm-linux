@@ -1,0 +1,66 @@
+# Copyright (c) Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+#
+# GenAI Studio Runtime Image
+# Ubuntu 24.04 ARM64 + Qualcomm fastrpc runtime ONLY (no build tools)
+#
+# This is the minimal base for running GenAI Studio services.
+# It does NOT include cmake, gcc, g++, make, binutils, or dev headers.
+#
+# Size target: ~200 MB (vs 919 MB for genai-base which includes build tools)
+#
+# ─── Build ───────────────────────────────────────────────────────────────────
+#   docker build -f Dockerfile.runtime -t genai-runtime:latest .
+#
+# ─── Prerequisites ───────────────────────────────────────────────────────────
+#   ubuntu:24.04 ARM64 must be available locally.
+#
+#   If Docker Hub is IP-restricted, bootstrap from genai-base:latest:
+#     bash scripts/bootstrap-runtime.sh
+#
+# ─── What's included ─────────────────────────────────────────────────────────
+#   - Ubuntu 24.04 ARM64 base (libc, libstdc++, libgcc_s, libm)
+#   - qcom-fastrpc1          : FastRPC runtime (DSP communication)
+#   - qcom-libdmabufheap     : DMA buffer heap runtime
+#   - firmware-qcom-hlosfw   : Qualcomm firmware files
+#   - libatomic1             : atomic operations runtime
+#
+# ─── What's NOT included (build-time only) ───────────────────────────────────
+#   - cmake, make, gcc, g++, binutils, cpp
+#   - qcom-fastrpc-dev, qcom-dspservices-headers-dev (headers)
+#   - linux-libc-dev, libstdc++-dev (headers)
+#   - software-properties-common, wget
+
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install only runtime libs (no build tools, no dev headers)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libstdc++6 \
+        libgcc-s1 \
+        libatomic1 \
+        ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Qualcomm fastrpc RUNTIME library only (not -dev headers)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        software-properties-common && \
+    apt-add-repository -s ppa:ubuntu-qcom-iot/qcom-ppa && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        qcom-fastrpc1 \
+        qcom-libdmabufheap \
+        firmware-qcom-hlosfw && \
+    apt-get remove -y --purge software-properties-common && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
+
+LABEL org.opencontainers.image.title="GenAI-Studio-Runtime"
+LABEL org.opencontainers.image.description="Ubuntu 24.04 ARM64 + Qualcomm fastrpc runtime (no build tools)"
+LABEL org.opencontainers.image.version="1.0.0"
+LABEL org.opencontainers.image.vendor="Qualcomm Innovation Center"
+
+CMD ["/bin/bash"]

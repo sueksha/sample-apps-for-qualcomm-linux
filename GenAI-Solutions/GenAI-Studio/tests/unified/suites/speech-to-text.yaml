@@ -1,0 +1,584 @@
+meta:
+  service: speech-to-text
+  base_url: http://{target_host}:8081
+  profile: lite
+  target_cases: 45
+
+variables:
+  target_host: 10.92.165.205
+
+defaults:
+  timeout_s: 120
+
+cases:
+  - id: STT-P01
+    kind: positive
+    name: Health endpoint
+    request:
+      method: GET
+      path: /health
+    expect:
+      statuses: [200]
+      json_keys: [status, model, version]
+
+  - id: STT-P02
+    kind: positive
+    name: Languages endpoint
+    request:
+      method: GET
+      path: /languages
+    expect:
+      status_class: 2xx
+
+  - id: STT-P03
+    kind: positive
+    name: Models endpoint
+    request:
+      method: GET
+      path: /v1/models
+    expect:
+      status_class: 2xx
+      json_keys: [data]
+
+  - id: STT-P04
+    kind: positive
+    name: Whisper model metadata
+    request:
+      method: GET
+      path: /v1/models/whisper-1
+    expect:
+      status_class: 2xx
+      json_keys: [object, id]
+
+  - id: STT-P05
+    kind: positive
+    name: Transcriptions JSON with whisper model
+    request:
+      method: POST
+      path: /v1/audio/transcriptions
+      form:
+        model: whisper-1
+      files:
+        - field: file
+          fixture: tests/unified/fixtures/stt/0.wav
+          filename: 0.wav
+          content_type: audio/wav
+    expect:
+      status_class: 2xx
+      json_keys: [text]
+
+  - id: STT-P06
+    kind: positive
+    name: Transcriptions text response format
+    request:
+      method: POST
+      path: /v1/audio/transcriptions
+      form:
+        model: whisper-1
+        response_format: text
+      files:
+        - field: file
+          fixture: tests/unified/fixtures/stt/0.wav
+          filename: 0.wav
+          content_type: audio/wav
+    expect:
+      status_class: 2xx
+
+  - id: STT-P07
+    kind: positive
+    name: Transcriptions with alternate wav fixture
+    request:
+      method: POST
+      path: /v1/audio/transcriptions
+      form:
+        model: whisper-1
+      files:
+        - field: file
+          fixture: tests/unified/fixtures/stt/1.wav
+          filename: 1.wav
+          content_type: audio/wav
+    expect:
+      status_class: 2xx
+
+  - id: STT-P08
+    kind: positive
+    name: Translations endpoint
+    request:
+      method: POST
+      path: /v1/audio/translations
+      form:
+        model: whisper-1
+        response_format: json
+      files:
+        - field: file
+          fixture: tests/unified/fixtures/stt/0.wav
+          filename: 0.wav
+          content_type: audio/wav
+    expect:
+      status_class: 2xx
+      json_keys: [text]
+
+  - id: STT-P09
+    kind: positive
+    name: Legacy generate endpoint
+    request:
+      method: POST
+      path: /generate
+      files:
+        - field: audio
+          fixture: tests/unified/fixtures/stt/0.wav
+          filename: 0.wav
+          content_type: audio/wav
+    expect:
+      status_class: 2xx
+
+  - id: STT-P10
+    kind: positive
+    name: Realtime endpoint health
+    request:
+      method: GET
+      path: /v1/realtime
+    expect:
+      status_class: 2xx
+
+  - id: STT-P11
+    kind: positive
+    name: Create realtime session
+    request:
+      method: POST
+      path: /v1/realtime/sessions
+      json: {}
+    capture:
+      sid: json:id
+    expect:
+      status_class: 2xx
+      json_keys: [id]
+
+  - id: STT-P12
+    kind: positive
+    name: Delete realtime session
+    request:
+      method: DELETE
+      path: /v1/realtime/sessions/{sid}
+    expect:
+      status_class: 2xx
+
+  - id: STT-P13
+    kind: positive
+    name: Metrics endpoint
+    request:
+      method: GET
+      path: /metrics
+    expect:
+      status_class: 2xx
+      json_keys: [requests_total]
+
+  - id: STT-P14
+    kind: positive
+    name: Transcriptions with language field
+    request:
+      method: POST
+      path: /v1/audio/transcriptions
+      form:
+        model: whisper-1
+        language: en
+      files:
+        - field: file
+          fixture: tests/unified/fixtures/stt/1.wav
+          filename: 1.wav
+          content_type: audio/wav
+    expect:
+      status_class: 2xx
+      json_keys: [text]
+
+  - id: STT-P15
+    kind: positive
+    name: Transcriptions stream endpoint health
+    request:
+      method: GET
+      path: /v1/audio/transcriptions/stream
+    expect:
+      status_class: 2xx
+
+  - id: STT-P16
+    kind: positive
+    name: Transcriptions verbose_json response format
+    request:
+      method: POST
+      path: /v1/audio/transcriptions
+      form:
+        model: whisper-1
+        response_format: verbose_json
+      files:
+        - field: file
+          fixture: tests/unified/fixtures/stt/0.wav
+          filename: 0.wav
+          content_type: audio/wav
+    expect:
+      status_class: 2xx
+      json_keys: [text]
+
+  - id: STT-P17
+    kind: positive
+    name: Legacy transcribe endpoint
+    request:
+      method: POST
+      path: /transcribe
+      files:
+        - field: audio
+          fixture: tests/unified/fixtures/stt/0.wav
+          filename: 0.wav
+          content_type: audio/wav
+    expect:
+      status_class: 2xx
+
+  - id: STT-P18
+    kind: positive
+    name: Legacy transcribe raw endpoint
+    request:
+      method: POST
+      path: /transcribe/raw
+      headers:
+        Content-Type: application/octet-stream
+      raw_body: "0000"
+    expect:
+      status_class: 2xx
+
+  - id: STT-P19
+    kind: positive
+    name: Stream transcription request
+    request:
+      method: POST
+      path: /v1/audio/transcriptions/stream
+      form:
+        model: whisper-1
+      files:
+        - field: file
+          fixture: tests/unified/fixtures/stt/0.wav
+          filename: 0.wav
+          content_type: audio/wav
+    expect:
+      status_class: 2xx
+      body_contains_any_ci: [transcript, text]
+
+  - id: STT-P20
+    kind: positive
+    name: Realtime create session with config
+    request:
+      method: POST
+      path: /v1/realtime/sessions
+      json:
+        sample_rate_hz: 16000
+        max_duration_s: 30
+    capture:
+      sid_rt_cfg: json:id
+    expect:
+      status_class: 2xx
+      json_keys: [id]
+
+  - id: STT-P21
+    kind: positive
+    name: Realtime get configured session
+    requires_cases: [STT-P20]
+    request:
+      method: GET
+      path: /v1/realtime/sessions/{sid_rt_cfg}
+    expect:
+      status_class: 2xx
+
+  - id: STT-P22
+    kind: positive
+    name: Realtime delete configured session
+    requires_cases: [STT-P20]
+    request:
+      method: DELETE
+      path: /v1/realtime/sessions/{sid_rt_cfg}
+    expect:
+      status_class: 2xx
+
+  - id: STT-P23
+    kind: positive
+    name: Large audio transcription (60s silence wav)
+    request:
+      method: POST
+      path: /v1/audio/transcriptions
+      form:
+        model: whisper-1
+      files:
+        - field: file
+          fixture: tests/unified/fixtures/stt/long_60s_16k.wav
+          filename: long_60s_16k.wav
+          content_type: audio/wav
+    expect:
+      status_class: 2xx
+      max_elapsed_ms: 240000
+
+  - id: STT-N01
+    kind: negative
+    name: Transcriptions missing file
+    request:
+      method: POST
+      path: /v1/audio/transcriptions
+      form:
+        model: whisper-1
+    expect:
+      status_class: non-2xx
+
+  - id: STT-N02
+    kind: negative
+    name: Transcriptions missing model
+    request:
+      method: POST
+      path: /v1/audio/transcriptions
+      files:
+        - field: file
+          fixture: tests/unified/fixtures/stt/0.wav
+          filename: 0.wav
+          content_type: audio/wav
+    expect:
+      status_class: non-2xx
+
+  - id: STT-N03
+    kind: negative
+    name: Transcriptions empty file
+    request:
+      method: POST
+      path: /v1/audio/transcriptions
+      form:
+        model: whisper-1
+      files:
+        - field: file
+          filename: empty.wav
+          content_type: audio/wav
+          inline_text: ""
+    expect:
+      status_class: non-2xx
+
+  - id: STT-N04
+    kind: negative
+    name: Transcriptions invalid response format
+    request:
+      method: POST
+      path: /v1/audio/transcriptions
+      form:
+        model: whisper-1
+        response_format: xml
+      files:
+        - field: file
+          fixture: tests/unified/fixtures/stt/0.wav
+          filename: 0.wav
+          content_type: audio/wav
+    expect:
+      status_class: non-2xx
+
+  - id: STT-N05
+    kind: negative
+    name: Transcriptions unsupported model
+    request:
+      method: POST
+      path: /v1/audio/transcriptions
+      form:
+        model: bad-model
+      files:
+        - field: file
+          fixture: tests/unified/fixtures/stt/0.wav
+          filename: 0.wav
+          content_type: audio/wav
+    expect:
+      status_class: non-2xx
+
+  - id: STT-N06
+    kind: negative
+    name: Transcriptions JSON body only
+    request:
+      method: POST
+      path: /v1/audio/transcriptions
+      json:
+        model: whisper-1
+    expect:
+      status_class: non-2xx
+
+  - id: STT-N07
+    kind: negative
+    name: Translations missing file
+    request:
+      method: POST
+      path: /v1/audio/translations
+      form:
+        model: whisper-1
+    expect:
+      status_class: non-2xx
+
+  - id: STT-N08
+    kind: negative
+    name: Translations missing model
+    request:
+      method: POST
+      path: /v1/audio/translations
+      files:
+        - field: file
+          fixture: tests/unified/fixtures/stt/0.wav
+          filename: 0.wav
+          content_type: audio/wav
+    expect:
+      status_class: non-2xx
+
+  - id: STT-N09
+    kind: negative
+    name: Legacy generate missing audio
+    request:
+      method: POST
+      path: /generate
+    expect:
+      status_class: non-2xx
+
+  - id: STT-N10
+    kind: negative
+    name: Unknown endpoint
+    request:
+      method: GET
+      path: /this/endpoint/does-not-exist
+    expect:
+      statuses: [404]
+
+  - id: STT-N11
+    kind: negative
+    name: Realtime unknown session
+    request:
+      method: GET
+      path: /v1/realtime/sessions/not_found_session
+    expect:
+      status_class: non-2xx
+
+  - id: STT-N12
+    kind: negative
+    name: Stream transcription missing fields
+    request:
+      method: POST
+      path: /v1/audio/transcriptions/stream
+    expect:
+      status_class: non-2xx
+
+  - id: STT-N13
+    kind: negative
+    name: Translations unsupported model
+    request:
+      method: POST
+      path: /v1/audio/translations
+      form:
+        model: unsupported-model-id
+      files:
+        - field: file
+          fixture: tests/unified/fixtures/stt/0.wav
+          filename: 0.wav
+          content_type: audio/wav
+    expect:
+      status_class: non-2xx
+
+  - id: STT-N14
+    kind: negative
+    name: Realtime session invalid JSON body
+    request:
+      method: POST
+      path: /v1/realtime/sessions
+      headers:
+        Content-Type: application/json
+      raw_body: "{bad json"
+    expect:
+      status_class: non-2xx
+
+  - id: STT-N15
+    kind: negative
+    name: Stream transcription invalid response format
+    request:
+      method: POST
+      path: /v1/audio/transcriptions/stream
+      form:
+        model: whisper-1
+        response_format: ini
+      files:
+        - field: file
+          fixture: tests/unified/fixtures/stt/0.wav
+          filename: 0.wav
+          content_type: audio/wav
+    expect:
+      status_class: non-2xx
+
+  - id: STT-N16
+    kind: negative
+    name: Large audio transcription missing model
+    request:
+      method: POST
+      path: /v1/audio/transcriptions
+      files:
+        - field: file
+          fixture: tests/unified/fixtures/stt/long_60s_16k.wav
+          filename: long_60s_16k.wav
+          content_type: audio/wav
+    expect:
+      status_class: non-2xx
+
+  - id: STT-N17
+    kind: negative
+    name: Legacy transcribe missing audio
+    request:
+      method: POST
+      path: /transcribe
+    expect:
+      status_class: non-2xx
+
+  - id: STT-N18
+    kind: negative
+    name: Legacy transcribe raw empty body
+    request:
+      method: POST
+      path: /transcribe/raw
+      headers:
+        Content-Type: application/octet-stream
+      raw_body: ""
+    expect:
+      status_class: non-2xx
+
+  - id: STT-N19
+    kind: negative
+    name: Legacy transcribe raw odd byte count
+    request:
+      method: POST
+      path: /transcribe/raw
+      headers:
+        Content-Type: application/octet-stream
+      raw_body: "0"
+    expect:
+      status_class: non-2xx
+
+  - id: STT-N20
+    kind: negative
+    name: Realtime create session invalid sample_rate type
+    request:
+      method: POST
+      path: /v1/realtime/sessions
+      json:
+        sample_rate_hz: "16000"
+    expect:
+      status_class: non-2xx
+
+  - id: STT-N21
+    kind: negative
+    name: Realtime append unknown session
+    request:
+      method: POST
+      path: /v1/realtime/sessions/rtsess_missing_123/audio
+      headers:
+        Content-Type: application/octet-stream
+      raw_body: "0000"
+    expect:
+      status_class: non-2xx
+
+  - id: STT-N22
+    kind: negative
+    name: Realtime finalize unknown session
+    request:
+      method: POST
+      path: /v1/realtime/sessions/rtsess_missing_123/finalize
+    expect:
+      status_class: non-2xx

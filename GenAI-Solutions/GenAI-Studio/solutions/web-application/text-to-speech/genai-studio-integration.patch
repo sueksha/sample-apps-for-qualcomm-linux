@@ -1,0 +1,23 @@
+diff --git a/app.py b/app.py
+index 509bba0..9ff3fdb 100644
+--- a/app.py
++++ b/app.py
+@@ -2,12 +2,17 @@ import gradio as gr
+ import os, tempfile
+ from openai import OpenAI
+ 
++base_ip = os.environ["OPENAI_BASE_IP"]
++
+ def tts(text, model, voice, api_key):
+     if not api_key:
+         raise gr.Error('Please enter your OpenAI API Key')
+ 
+     try:
+-        client = OpenAI(api_key=api_key)
++        client = OpenAI(
++                base_url=f"http://{base_ip}:8090/v1",
++                api_key= "dummy"
++                )
+ 
+         response = client.audio.speech.create(
+             model=model,

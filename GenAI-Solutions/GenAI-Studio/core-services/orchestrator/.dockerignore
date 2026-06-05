@@ -1,0 +1,7 @@
+# Orchestrator build context exclusions
+# Build consumes device_app.py, app/, and static/.
+
+.git
+.gitignore
+.gitattributes
+Dockerfile

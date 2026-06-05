@@ -1,0 +1,702 @@
+meta:
+  service: text-to-image
+  base_url: http://{target_host}:8084
+  profile: lite
+  target_cases: 45
+
+variables:
+  target_host: 10.92.165.205
+  model_id: stable-diffusion-2-1
+  api_key: qti-demo-key
+  large_prompt_1000: "__GEN_WORDS_1000__"
+  gibberish_prompt_1000: "__GEN_GIBBERISH_1000__"
+
+defaults:
+  timeout_s: 300
+  headers:
+    Authorization: "Bearer {api_key}"
+
+cases:
+  - id: T2I-P01
+    kind: positive
+    name: Health endpoint
+    request:
+      method: GET
+      path: /health
+      headers:
+        Authorization: null
+    expect:
+      statuses: [200]
+      body_contains: ["status"]
+
+  - id: T2I-P02
+    kind: positive
+    name: Models endpoint
+    request:
+      method: GET
+      path: /v1/models
+    expect:
+      statuses: [200]
+      body_contains: ["stable-diffusion-2-1"]
+
+  - id: T2I-P03
+    kind: positive
+    name: Model metadata endpoint
+    request:
+      method: GET
+      path: /v1/models/{model_id}
+    expect:
+      statuses: [200]
+
+  - id: T2I-P04
+    kind: positive
+    name: Generation params endpoint
+    request:
+      method: GET
+      path: /v1/images/generations/params
+    expect:
+      statuses: [200]
+      body_contains: ["supported_sizes"]
+
+  - id: T2I-P05
+    kind: positive
+    name: Image generation basic b64 response
+    request:
+      method: POST
+      path: /v1/images/generations
+      json:
+        model: "{model_id}"
+        prompt: A compact mountain village at sunrise.
+        response_format: b64_json
+        seed: 42
+        steps: 4
+        guidance_scale: 7.5
+        n: 1
+        size: 512x512
+    expect:
+      statuses: [200]
+      json_keys: [data]
+
+  - id: T2I-P06
+    kind: positive
+    name: Image generation alias model
+    request:
+      method: POST
+      path: /v1/images/generations
+      json:
+        model: gpt-image-1
+        prompt: A red bridge over calm water.
+        response_format: b64_json
+        seed: 43
+        steps: 4
+        guidance_scale: 7.5
+        n: 1
+        size: 512x512
+    expect:
+      statuses: [200]
+      json_keys: [data]
+
+  - id: T2I-P07
+    kind: positive
+    name: Image generation URL response format
+    request:
+      method: POST
+      path: /v1/images/generations
+      json:
+        model: "{model_id}"
+        prompt: A small sailboat near the coast.
+        response_format: url
+        seed: 44
+        steps: 4
+        guidance_scale: 7.5
+        n: 1
+        size: 512x512
+    expect:
+      statuses: [200]
+      json_keys: [data]
+
+  - id: T2I-P08
+    kind: positive
+    name: Legacy generate endpoint
+    request:
+      method: POST
+      path: /generate
+      json:
+        model: "{model_id}"
+        prompt: Cinematic city skyline at dusk.
+        response_format: url
+        seed: 45
+        steps: 4
+        guidance_scale: 7.5
+        n: 1
+        size: 512x512
+    expect:
+      statuses: [200]
+      content_type_contains: image/png
+
+  - id: T2I-P09
+    kind: positive
+    name: Variations endpoint multipart
+    request:
+      method: POST
+      path: /v1/images/variations
+      form:
+        model: "{model_id}"
+        steps: 4
+        response_format: b64_json
+      files:
+        - field: image
+          fixture: tests/unified/fixtures/tiny.png
+          filename: tiny.png
+          content_type: image/png
+    expect:
+      statuses: [200]
+      json_keys: [data]
+
+  - id: T2I-P10
+    kind: positive
+    name: Edits endpoint multipart
+    request:
+      method: POST
+      path: /v1/images/edits
+      form:
+        model: "{model_id}"
+        prompt: Make this image cinematic.
+        steps: 4
+        response_format: b64_json
+      files:
+        - field: image
+          fixture: tests/unified/fixtures/tiny.png
+          filename: tiny.png
+          content_type: image/png
+    expect:
+      statuses: [200]
+      json_keys: [data]
+
+  - id: T2I-P11
+    kind: positive
+    name: Variations endpoint with n=2
+    request:
+      method: POST
+      path: /v1/images/variations
+      form:
+        model: "{model_id}"
+        steps: 4
+        n: 2
+        response_format: b64_json
+      files:
+        - field: image
+          fixture: tests/unified/fixtures/tiny.png
+          filename: tiny.png
+          content_type: image/png
+    expect:
+      statuses: [200]
+      json_keys: [data]
+
+  - id: T2I-P12
+    kind: positive
+    name: Edits endpoint with negative prompt
+    request:
+      method: POST
+      path: /v1/images/edits
+      form:
+        model: "{model_id}"
+        prompt: A city skyline.
+        negative_prompt: blurry
+        steps: 4
+        response_format: b64_json
+      files:
+        - field: image
+          fixture: tests/unified/fixtures/tiny.png
+          filename: tiny.png
+          content_type: image/png
+    expect:
+      statuses: [200]
+      json_keys: [data]
+
+  - id: T2I-P13
+    kind: positive
+    name: Image generation sd2.1 alias
+    request:
+      method: POST
+      path: /v1/images/generations
+      json:
+        model: sd2.1
+        prompt: A minimalist modern house.
+        response_format: b64_json
+        seed: 46
+        steps: 4
+        guidance_scale: 7.5
+        n: 1
+        size: 512x512
+    expect:
+      statuses: [200]
+      json_keys: [data]
+
+  - id: T2I-P14
+    kind: positive
+    name: Image generation n equals two
+    request:
+      method: POST
+      path: /v1/images/generations
+      json:
+        model: "{model_id}"
+        prompt: A blue train passing a valley.
+        response_format: b64_json
+        seed: 47
+        steps: 4
+        guidance_scale: 7.5
+        n: 2
+        size: 512x512
+    expect:
+      statuses: [200]
+      json_keys: [data]
+
+  - id: T2I-P15
+    kind: positive
+    name: Edits endpoint alias model
+    request:
+      method: POST
+      path: /v1/images/edits
+      form:
+        model: gpt-image-1
+        prompt: Convert to neon style.
+        steps: 4
+        response_format: b64_json
+      files:
+        - field: image
+          fixture: tests/unified/fixtures/tiny.png
+          filename: tiny.png
+          content_type: image/png
+    expect:
+      statuses: [200]
+      json_keys: [data]
+
+  - id: T2I-P16
+    kind: positive
+    name: Generation with 1000-word prompt
+    request:
+      method: POST
+      path: /v1/images/generations
+      json:
+        model: "{model_id}"
+        prompt: "{large_prompt_1000}"
+        response_format: b64_json
+        seed: 48
+        steps: 4
+        guidance_scale: 7.5
+        n: 1
+        size: 512x512
+    expect:
+      statuses: [200]
+      json_keys: [data]
+      max_elapsed_ms: 300000
+
+  - id: T2I-P17
+    kind: positive
+    name: Generation with 1000-word gibberish prompt
+    request:
+      method: POST
+      path: /v1/images/generations
+      json:
+        model: "{model_id}"
+        prompt: "{gibberish_prompt_1000}"
+        response_format: b64_json
+        seed: 49
+        steps: 4
+        guidance_scale: 7.5
+        n: 1
+        size: 512x512
+    expect:
+      statuses: [200]
+      json_keys: [data]
+
+  - id: T2I-P18
+    kind: positive
+    name: Generation with higher steps
+    request:
+      method: POST
+      path: /v1/images/generations
+      json:
+        model: "{model_id}"
+        prompt: A bright city street at dusk.
+        response_format: b64_json
+        seed: 50
+        steps: 8
+        guidance_scale: 7.5
+        n: 1
+        size: 512x512
+    expect:
+      statuses: [200]
+      json_keys: [data]
+
+  - id: T2I-P19
+    kind: positive
+    name: Generation with lower guidance
+    request:
+      method: POST
+      path: /v1/images/generations
+      json:
+        model: "{model_id}"
+        prompt: A wooden bridge in a forest.
+        response_format: b64_json
+        seed: 51
+        steps: 4
+        guidance_scale: 4.0
+        n: 1
+        size: 512x512
+    expect:
+      statuses: [200]
+      json_keys: [data]
+
+  - id: T2I-P20
+    kind: positive
+    name: Variations endpoint url response format
+    request:
+      method: POST
+      path: /v1/images/variations
+      form:
+        model: "{model_id}"
+        steps: 4
+        response_format: url
+      files:
+        - field: image
+          fixture: tests/unified/fixtures/tiny.png
+          filename: tiny.png
+          content_type: image/png
+    expect:
+      statuses: [200]
+      json_keys: [data]
+
+  - id: T2I-P21
+    kind: positive
+    name: Legacy generate with 1000-word prompt
+    request:
+      method: POST
+      path: /generate
+      json:
+        model: "{model_id}"
+        prompt: "{large_prompt_1000}"
+        response_format: url
+        seed: 52
+        steps: 4
+        guidance_scale: 7.5
+        n: 1
+        size: 512x512
+    expect:
+      statuses: [200]
+      content_type_contains: image/png
+
+  - id: T2I-P22
+    kind: positive
+    name: Edits endpoint with gibberish prompt
+    request:
+      method: POST
+      path: /v1/images/edits
+      form:
+        model: "{model_id}"
+        prompt: "{gibberish_prompt_1000}"
+        steps: 4
+        response_format: b64_json
+      files:
+        - field: image
+          fixture: tests/unified/fixtures/tiny.png
+          filename: tiny.png
+          content_type: image/png
+    expect:
+      statuses: [200]
+      json_keys: [data]
+
+  - id: T2I-P23
+    kind: positive
+    name: Generation with seed omitted
+    request:
+      method: POST
+      path: /v1/images/generations
+      json:
+        model: "{model_id}"
+        prompt: A cinematic river valley.
+        response_format: b64_json
+        steps: 4
+        guidance_scale: 7.5
+        n: 1
+        size: 512x512
+    expect:
+      statuses: [200]
+      json_keys: [data]
+
+  - id: T2I-N01
+    kind: negative
+    name: Models with bad auth key
+    request:
+      method: GET
+      path: /v1/models
+      headers:
+        Authorization: Bearer bad-key
+    expect:
+      statuses: [401]
+
+  - id: T2I-N02
+    kind: negative
+    name: Image generation with no auth header
+    request:
+      method: POST
+      path: /v1/images/generations
+      headers:
+        Authorization: null
+      json:
+        model: "{model_id}"
+        prompt: hello
+        response_format: b64_json
+        n: 1
+        size: 512x512
+    expect:
+      statuses: [401]
+
+  - id: T2I-N03
+    kind: negative
+    name: Image generation invalid JSON
+    request:
+      method: POST
+      path: /v1/images/generations
+      headers:
+        Content-Type: application/json
+      raw_body: "{bad json"
+    expect:
+      statuses: [400]
+
+  - id: T2I-N04
+    kind: negative
+    name: Image generation missing prompt
+    request:
+      method: POST
+      path: /v1/images/generations
+      json:
+        model: "{model_id}"
+        response_format: b64_json
+    expect:
+      statuses: [400]
+
+  - id: T2I-N05
+    kind: negative
+    name: Image generation unsupported model
+    request:
+      method: POST
+      path: /v1/images/generations
+      json:
+        model: not-a-model
+        prompt: test
+        response_format: b64_json
+    expect:
+      statuses: [400]
+
+  - id: T2I-N06
+    kind: negative
+    name: Image generation invalid size
+    request:
+      method: POST
+      path: /v1/images/generations
+      json:
+        model: "{model_id}"
+        prompt: test
+        response_format: b64_json
+        size: 1024x1024
+    expect:
+      statuses: [400]
+
+  - id: T2I-N07
+    kind: negative
+    name: Image generation invalid response_format
+    request:
+      method: POST
+      path: /v1/images/generations
+      json:
+        model: "{model_id}"
+        prompt: test
+        response_format: raw
+    expect:
+      statuses: [400]
+
+  - id: T2I-N08
+    kind: negative
+    name: Legacy generate invalid response_format
+    request:
+      method: POST
+      path: /generate
+      json:
+        model: "{model_id}"
+        prompt: test
+        response_format: raw
+    expect:
+      statuses: [400]
+
+  - id: T2I-N09
+    kind: negative
+    name: Edits missing image
+    request:
+      method: POST
+      path: /v1/images/edits
+      form:
+        model: "{model_id}"
+        prompt: test
+    expect:
+      statuses: [400]
+
+  - id: T2I-N10
+    kind: negative
+    name: Variations missing image
+    request:
+      method: POST
+      path: /v1/images/variations
+      form:
+        model: "{model_id}"
+    expect:
+      statuses: [400]
+
+  - id: T2I-N11
+    kind: negative
+    name: Unknown route
+    request:
+      method: GET
+      path: /v1/route-not-found
+    expect:
+      statuses: [404]
+
+  - id: T2I-N12
+    kind: negative
+    name: Unsupported method on generations route
+    request:
+      method: GET
+      path: /v1/images/generations
+    expect:
+      status_class: non-2xx
+
+  - id: T2I-N13
+    kind: negative
+    name: Unsupported method on edits route
+    request:
+      method: GET
+      path: /v1/images/edits
+    expect:
+      status_class: non-2xx
+
+  - id: T2I-N14
+    kind: negative
+    name: Unsupported method on variations route
+    request:
+      method: GET
+      path: /v1/images/variations
+    expect:
+      status_class: non-2xx
+
+  - id: T2I-N15
+    kind: negative
+    name: Unknown image file id
+    request:
+      method: GET
+      path: /v1/images/files/does-not-exist
+      headers:
+        Authorization: null
+    expect:
+      statuses: [404]
+
+  - id: T2I-N16
+    kind: negative
+    name: Generation prompt wrong type
+    request:
+      method: POST
+      path: /v1/images/generations
+      json:
+        model: "{model_id}"
+        prompt:
+          text: invalid
+        response_format: b64_json
+    expect:
+      status_class: non-2xx
+
+  - id: T2I-N17
+    kind: negative
+    name: Generation n equals zero
+    request:
+      method: POST
+      path: /v1/images/generations
+      json:
+        model: "{model_id}"
+        prompt: invalid n
+        response_format: b64_json
+        n: 0
+    expect:
+      status_class: non-2xx
+
+  - id: T2I-N18
+    kind: negative
+    name: Generation steps equals zero
+    request:
+      method: POST
+      path: /v1/images/generations
+      json:
+        model: "{model_id}"
+        prompt: invalid steps
+        response_format: b64_json
+        steps: 0
+    expect:
+      status_class: non-2xx
+
+  - id: T2I-N19
+    kind: negative
+    name: Generation guidance wrong type
+    request:
+      method: POST
+      path: /v1/images/generations
+      json:
+        model: "{model_id}"
+        prompt: invalid guidance
+        response_format: b64_json
+        guidance_scale: fast
+    expect:
+      status_class: non-2xx
+
+  - id: T2I-N20
+    kind: negative
+    name: Edits endpoint non-image upload
+    request:
+      method: POST
+      path: /v1/images/edits
+      form:
+        model: "{model_id}"
+        prompt: invalid image content type
+        response_format: b64_json
+      files:
+        - field: image
+          filename: bad.txt
+          content_type: text/plain
+          inline_text: this is not an image
+    expect:
+      status_class: non-2xx
+
+  - id: T2I-N21
+    kind: negative
+    name: Variations endpoint empty upload
+    request:
+      method: POST
+      path: /v1/images/variations
+      form:
+        model: "{model_id}"
+        response_format: b64_json
+      files:
+        - field: image
+          filename: empty.png
+          content_type: image/png
+          inline_text: ""
+    expect:
+      status_class: non-2xx
+
+  - id: T2I-N22
+    kind: negative
+    name: Params endpoint wrong method
+    request:
+      method: POST
+      path: /v1/images/generations/params
+      json: {}
+    expect:
+      status_class: non-2xx

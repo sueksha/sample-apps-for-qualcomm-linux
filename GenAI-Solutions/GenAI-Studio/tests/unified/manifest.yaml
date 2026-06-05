@@ -1,0 +1,38 @@
+meta:
+  name: core-services-unified-lite
+  description: Unified 45-case suites for each core runtime service.
+  generated_by: tests/unified/run_manifest.py
+
+services:
+  - service: text-to-text
+    suite: tests/unified/suites/text-to-text.yaml
+    expected_case_count: 45
+    source_suite: tests/unified/suites/text-to-text.yaml
+
+  - service: speech-to-text
+    suite: tests/unified/suites/speech-to-text.yaml
+    expected_case_count: 45
+    source_suite: tests/unified/suites/speech-to-text.yaml
+
+  - service: image-to-text
+    suite: tests/unified/suites/image-to-text.yaml
+    expected_case_count: 45
+    source_suite: tests/unified/suites/image-to-text.yaml
+
+  - service: text-to-image
+    suite: tests/unified/suites/text-to-image.yaml
+    expected_case_count: 45
+    source_suite: tests/unified/suites/text-to-image.yaml
+
+  - service: text-to-speech
+    suite: tests/unified/suites/text-to-speech.yaml
+    expected_case_count: 45
+    source_suite: tests/unified/suites/text-to-speech.yaml
+
+  - service: orchestrator
+    suite: tests/unified/suites/orchestrator.yaml
+    expected_case_count: 45
+    source_suite: tests/unified/suites/orchestrator.yaml
+
+notes:
+  - Core-services/platform does not expose a standalone public API service; it has no independent HTTP suite.

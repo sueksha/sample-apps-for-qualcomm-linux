@@ -1,0 +1,53 @@
+diff --git a/app.py b/app.py
+index 1d4dd92..ecf16e3 100644
+--- a/app.py
++++ b/app.py
+@@ -3,7 +3,7 @@ import openai
+ import streamlit as st
+ import urllib.request
+ from PIL import Image
+-
++import os
+ 
+ # Function to add app background image
+ def add_bg_from_local(image_file):
+@@ -15,13 +15,13 @@ def add_bg_from_local(image_file):
+ 
+ # Function to generate images with rate limiting
+ def generate_image(prompt):
+-    img_response = openai.images.generate(
+-        model="dall-e-2",
++    img_response = client.images.generate(
++        model="stable-diffusion-2-1",
+         prompt=prompt,
+-        size="256x256",
+         quality="hd",
+         n=1,
+     )
++
+     image_url = img_response.data[0].url
+     urllib.request.urlretrieve(image_url, 'img.png')
+     img = Image.open("img.png")
+@@ -43,6 +43,14 @@ add_bg_from_local('background.jpg')
+ # Entering OpenAI API key
+ openai.api_key = st.sidebar.text_input("First, enter your OpenAI API key : ", type="password")
+ 
++base_ip = os.environ["OPENAI_BASE_IP"]
++
++# Please note that the api key is a dummy and is required by openai
++client = openai.OpenAI(
++        base_url=f"http://{base_ip}:8090/v1",
++       api_key= "dummy"
++       )
++
+ img_description = st.text_input('Image Description : ')
+ 
+ if st.button('Generate Image'):
+@@ -56,3 +64,4 @@ if st.button('Generate Image'):
+                 st.error("Please enter valid OpenAI API key.")
+     else:
+         st.warning("Please input your OpenAI API key.")
++
+diff --git a/img.png b/img.png
+index a87bc78..5f12c04 100644
+Binary files a/img.png and b/img.png differ

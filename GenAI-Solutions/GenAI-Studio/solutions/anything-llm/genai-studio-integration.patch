@@ -1,0 +1,24 @@
+diff --git a/collector/utils/WhisperProviders/OpenAiWhisper.js b/collector/utils/WhisperProviders/OpenAiWhisper.js
+index e2405b6a..d219b2a6 100644
+--- a/collector/utils/WhisperProviders/OpenAiWhisper.js
++++ b/collector/utils/WhisperProviders/OpenAiWhisper.js
+@@ -5,10 +5,16 @@ class OpenAiWhisper {
+     const { OpenAI: OpenAIApi } = require("openai");
+     if (!options.openAiKey) throw new Error("No OpenAI API key was set.");
+ 
+-    this.openai = new OpenAIApi({
++    const config = {
+       apiKey: options.openAiKey,
+-    });
+-    this.model = "whisper-1";
++    };
++
++    if (process.env.OPEN_AI_TRANSCRIPTION_BASE_PATH) {
++      config.baseURL = process.env.OPEN_AI_TRANSCRIPTION_BASE_PATH;
++    }
++
++    this.openai = new OpenAIApi(config);
++    this.model = process.env.OPEN_AI_TRANSCRIPTION_MODEL || "whisper-1";
+     this.temperature = 0;
+     this.#log("Initialized.");
+   }

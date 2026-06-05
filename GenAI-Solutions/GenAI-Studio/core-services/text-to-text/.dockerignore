@@ -1,0 +1,18 @@
+# Text-to-Text build context exclusions
+# Keeps the Docker build context small; only src/ and run.sh are needed.
+
+# Git metadata
+.git
+.gitignore
+.gitattributes
+
+# CI / scripts
+*.sh
+!run.sh
+
+# Build artifacts (host-side, not needed inside Docker)
+src/build/
+src/cpp-httplib/
+
+# Docs
+README.md

@@ -1,0 +1,222 @@
+# Device Setup (Qualcomm Ubuntu 24.04 / QLI)
+
+This file is intended for initial target device provisioning only.
+
+All commands below should be run on the **TARGET device**.
+
+
+## 0) Already-Provisioned Quick Verify
+
+Run this first to verify your target device is already provisioned. If all checks pass, you may skip the remaining setup steps and proceed directly to [README.md](../../README.md) for the bring-up flow.
+
+```bash
+docker --version
+docker compose version
+docker buildx version
+ls /etc/cdi/
+ls -l /dev/fastrpc-cdsp
+ls -ld /opt/genai-studio-models /opt/qairt /opt/qairt/current
+```
+
+**Note:** If you encounter the error `docker: 'compose' is not a docker command` on QLI, it might be a SELinux permission issue. Run:
+
+```bash
+sudo setenforce 0
+getenforce
+```
+This should show `permissive` and then try again.
+
+## 1) Core Packages + Qualcomm Runtime + Docker
+
+This section installs essential system utilities, Qualcomm runtime libraries, and Docker. The process is divided into three parts:
+
+### 1a) Update system and install core utilities
+
+```bash
+sudo apt-get update
+sudo apt-get install -y curl ca-certificates gnupg lsb-release jq unzip rsync git
+```
+
+These tools are required for package management, downloading files, and system configuration.
+
+### 1b) Add Qualcomm PPA and install Qualcomm runtime packages
+
+```bash
+if ! grep -Rqs 'ubuntu-qcom-iot/qcom-ppa' /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null; then
+  sudo add-apt-repository -y ppa:ubuntu-qcom-iot/qcom-ppa
+fi
+sudo apt-get update
+sudo apt-get install -y \
+  qcom-fastrpc1 qcom-libdmabufheap-dev qcom-fastrpc-dev qcom-dspservices-headers-dev \
+  libqnn1 qnn-tools libsnpe1 snpe-tools
+```
+
+These packages provide:
+- **qcom-fastrpc1**: FastRPC runtime for DSP communication
+- **qcom-libdmabufheap-dev**: DMA buffer heap support for efficient memory sharing
+- **qcom-fastrpc-dev**: FastRPC development headers
+- **qcom-dspservices-headers-dev**: DSP service headers
+- **libqnn1 & qnn-tools**: Qualcomm Neural Network runtime and tools
+- **libsnpe1 & snpe-tools**: Snapdragon Neural Processing Engine
+
+### 1c) Install Docker from official repository
+
+```bash
+sudo apt-get remove -y docker.io docker-doc docker-compose podman-docker containerd runc || true
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-compose
+sudo systemctl enable --now docker
+sudo usermod -aG docker "$USER"
+```
+
+This installs Docker from the official repository and configures it to:
+- Start automatically on boot (`systemctl enable --now`)
+- Allow your user to run Docker commands without `sudo` (`usermod -aG docker`)
+
+**Important:** After running `usermod -aG docker "$USER"`, you must open a new login shell for the group changes to take effect. You can do this by logging out and back in, or running:
+
+```bash
+newgrp docker
+```
+
+## 2) Enable Docker CDI + Install Qualcomm CDI Spec
+
+Container Device Interface (CDI) allows Docker containers to access hardware accelerators. This section enables CDI and installs the Qualcomm hardware acceleration specification.
+
+### 2a) Enable CDI in Docker daemon
+
+```bash
+sudo install -m 0755 -d /etc/docker
+printf '{\n  "features": {\n    "cdi": true\n  }\n}\n' | sudo tee /etc/docker/daemon.json >/dev/null
+
+TMP_DIR=$(mktemp -d)
+git clone --depth 1 https://github.com/quic/sample-apps-for-qualcomm-linux.git "$TMP_DIR/sample-apps"
+sudo install -d /etc/cdi
+sudo cp "$TMP_DIR/sample-apps/GenAI-Solutions/GenAI-Studio/docker-run-cdi-hw-acc.json" /etc/cdi/docker-run-cdi-hw-acc.json
+sudo chmod 644 /etc/cdi/docker-run-cdi-hw-acc.json
+rm -rf "$TMP_DIR"
+
+sudo systemctl restart docker
+grep -n 'qualcomm.com/device=cdi-hw-acc' /etc/cdi/docker-run-cdi-hw-acc.json
+```
+
+## 3) Validate DSP Runtime
+
+```bash
+qnn-platform-validator --backend dsp --testBackend || true
+```
+
+## 4) Create Standard Runtime Layout
+
+```bash
+sudo mkdir -p /opt/genai-studio-models/{text-to-text,speech-to-text,text-to-speech,image-to-text,text-to-image}
+sudo mkdir -p /opt/genai-studio-cache/huggingface
+sudo mkdir -p /opt/qairt
+sudo chown -R "$USER":"$USER" /opt/genai-studio-models /opt/genai-studio-cache /opt/qairt
+```
+
+## 5) Install QAIRT (Skip if already present)
+
+QAIRT (Qualcomm AI Runtime) is the core runtime for executing AI models on Qualcomm hardware. This step checks if it's already installed and installs it if needed.
+
+### 5a) Check if QAIRT is already installed
+
+```bash
+if [ -d /opt/qairt/current/include/Genie ] && [ -d /opt/qairt/current/lib ]; then
+  echo "QAIRT present at /opt/qairt/current (skip install)."
+else
+  echo "QAIRT missing. Run install block below."
+fi
+```
+
+Install block (only if missing):
+
+### 5b) Download and install QAIRT (only if missing)
+
+```bash
+[ -f ./versions.env ] && set -a && source ./versions.env && set +a
+QAIRT_VER="${QAIRT_VERSION:-2.45.0.260326}"
+QAIRT_ZIP=/tmp/v${QAIRT_VER}.zip
+QAIRT_URL="https://softwarecenter.qualcomm.com/api/download/software/sdks/Qualcomm_AI_Runtime_Community/All/${QAIRT_VER}/v${QAIRT_VER}.zip"
+
+curl -fL "$QAIRT_URL" -o "$QAIRT_ZIP"
+TMP_UNZIP=$(mktemp -d)
+unzip -q "$QAIRT_ZIP" -d "$TMP_UNZIP"
+sudo mkdir -p "/opt/qairt/${QAIRT_VER}"
+if [ -d "$TMP_UNZIP/qairt/${QAIRT_VER}" ]; then
+  rsync -a "$TMP_UNZIP/qairt/${QAIRT_VER}/" "/opt/qairt/${QAIRT_VER}/"
+else
+  rsync -a "$TMP_UNZIP/" "/opt/qairt/${QAIRT_VER}/"
+fi
+rm -rf "$TMP_UNZIP"
+sudo ln -sfn "/opt/qairt/${QAIRT_VER}" /opt/qairt/current
+sudo ln -sfn /opt/qairt/current/bin /opt/qairt/bin
+sudo ln -sfn /opt/qairt/current/include /opt/qairt/include
+sudo ln -sfn /opt/qairt/current/lib /opt/qairt/lib
+```
+
+This script:
+1. **Loads version from environment**: Checks for `versions.env` to allow version override
+2. **Downloads QAIRT**: Fetches the specified version from Qualcomm's software center
+3. **Extracts and installs**: Unzips the archive and copies files to `/opt/qairt/${QAIRT_VER}`
+4. **Creates symlinks**: Sets up `/opt/qairt/current` to point to the installed version, and creates convenience symlinks for `bin`, `include`, and `lib` directories
+
+The symlink approach allows easy version switching by updating the `/opt/qairt/current` link.
+
+## 6) Build QAIRT Flat Lib Bundle (Required by Compose)
+
+```bash
+QAIRT_FLAT_DIR="${QAIRT_FLAT_LIB_DIR:-/opt/qairt/current/qairt_245_flat_libs}"
+rm -rf "${QAIRT_FLAT_DIR}"
+mkdir -p "${QAIRT_FLAT_DIR}"
+cp -a /opt/qairt/current/lib/aarch64-oe-linux-gcc11.2/*.so* "${QAIRT_FLAT_DIR}/"
+cp -a /opt/qairt/current/lib/hexagon-v73/unsigned/libQnnHtpV73*.so "${QAIRT_FLAT_DIR}/"
+cp -a /opt/qairt/current/lib/hexagon-v73/unsigned/libqnnhtpv73.cat "${QAIRT_FLAT_DIR}/"
+cp -a /opt/qairt/current/lib/hexagon-v73/unsigned/libsnpehtpv73.cat "${QAIRT_FLAT_DIR}/"
+```
+
+Do not bulk-copy `hexagon-v73/unsigned/*.so*` into flat dir (can cause ASR ELF class failures).
+
+## 7) Verify Host RPC/DSP Paths
+
+```bash
+unset HOST_RPC_LIB_DIR
+for d in /usr/lib/aarch64-linux-gnu /usr/lib; do
+  if [ -f "$d/libcdsprpc.so.1" ] && [ -f "$d/libdmabufheap.so.0" ]; then
+    export HOST_RPC_LIB_DIR="$d"
+    break
+  fi
+done
+[ -n "$HOST_RPC_LIB_DIR" ] || { echo "ERROR: host RPC libs not found"; exit 1; }
+
+echo "HOST_RPC_LIB_DIR=$HOST_RPC_LIB_DIR"
+ls -l "$HOST_RPC_LIB_DIR/libcdsprpc.so" "$HOST_RPC_LIB_DIR/libcdsprpc.so.1" "$HOST_RPC_LIB_DIR/libcdsprpc.so.1.0.0" "$HOST_RPC_LIB_DIR/libdmabufheap.so.0"
+ls -ld /usr/lib/dsp /usr/lib/dsp/cdsp 2>/dev/null || true
+ls -l /usr/lib/dsp/cdsp/fastrpc_shell_unsigned_3 2>/dev/null || true
+```
+
+Optional compatibility alias for older loaders:
+
+```bash
+sudo ln -sfn /usr/lib/dsp/cdsp/fastrpc_shell_unsigned_3 /usr/lib/dsp/fastrpc_shell_unsigned_3
+```
+
+## 8) Final Readiness
+
+```bash
+docker --version
+docker compose version
+docker buildx version
+ls -ld /opt/genai-studio-models /opt/qairt /opt/qairt/current /opt/qairt/current/qairt_245_flat_libs
+echo "${HOST_RPC_LIB_DIR:-HOST_RPC_LIB_DIR not set in this shell}"
+```
+
+Next:
+
+1. Root onboarding: [../../README.md](../../README.md)
+2. Troubleshooting: [../TROUBLESHOOTING_GUIDE.md](../TROUBLESHOOTING_GUIDE.md)

@@ -1,0 +1,103 @@
+# Copyright (c) Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+#
+# genai-build-base — shared builder image for ALL GenAI Studio C++ services
+#
+# Consolidates genai-base + genai-build-base into a single image.
+# Starts directly from ubuntu:24.04 — no intermediate genai-base needed.
+#
+# ─── Contents ────────────────────────────────────────────────────────────────
+#   Ubuntu 24.04 ARM64 base
+#   C++ build tools : cmake, make, gcc, g++, wget
+#   Qualcomm dev    : qcom-fastrpc-dev, qcom-dspservices-headers-dev
+#   C++ headers     : nlohmann-json3-dev (apt), cpp-httplib, nlohmann/json
+#
+# ─── Build (single command) ──────────────────────────────────────────────────
+#   DOCKER_BUILDKIT=1 docker build -f Dockerfile.build-base -t genai-build-base:latest .
+#
+# ─── Prerequisites ───────────────────────────────────────────────────────────
+#   ubuntu:24.04 ARM64 must be available locally.
+#   On Qualcomm network (Docker Hub blocked):
+#     bash scripts/pull-ubuntu-arm64.sh
+#
+# ─── Used by ─────────────────────────────────────────────────────────────────
+#   core-services/text-to-text/Dockerfile  (builder stage)
+#   core-services/image-to-text/Dockerfile    (builder stage)
+#   core-services/speech-to-text/Dockerfile   (builder stage)
+#
+# ─── NOT used at runtime ─────────────────────────────────────────────────────
+#   Service runtime stages use fresh ubuntu:24.04 directly (much smaller).
+#   This image is builder-only and can be removed after all services are built:
+#     docker rmi genai-build-base:latest   # frees ~2.5 GB
+# =============================================================================
+
+# syntax=docker/dockerfile:1.7
+
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# ─── Step 1: C++ build tools + Qualcomm dev headers ──────────────────────────
+# Combined into ONE RUN to minimize layers.
+# BuildKit cache mounts keep apt packages cached between rebuilds.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update -qq && \
+    apt-get install -y --no-install-recommends \
+        cmake \
+        make \
+        gcc \
+        g++ \
+        wget \
+        ca-certificates \
+        software-properties-common \
+        nlohmann-json3-dev \
+        libatomic1 && \
+    apt-add-repository -s ppa:ubuntu-qcom-iot/qcom-ppa && \
+    apt-get update -qq && \
+    apt-get install -y --no-install-recommends \
+        qcom-fastrpc1 \
+        qcom-libdmabufheap-dev \
+        qcom-fastrpc-dev \
+        qcom-dspservices-headers-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# ─── Step 2: Header-only C++ libraries ───────────────────────────────────────
+# Pre-downloaded once here so service Dockerfiles don't need wget.
+# Stored at /opt/headers/ — service Dockerfiles copy from here.
+ARG HTTPLIB_VERSION=v0.15.3
+ARG NLOHMANN_VERSION=v3.11.3
+
+RUN mkdir -p /opt/headers/httplib /opt/headers/nlohmann && \
+    wget -q --tries=3 --timeout=30 \
+        "https://raw.githubusercontent.com/yhirose/cpp-httplib/${HTTPLIB_VERSION}/httplib.h" \
+        -O /opt/headers/httplib/httplib.h && \
+    wget -q --tries=3 --timeout=30 \
+        "https://raw.githubusercontent.com/nlohmann/json/${NLOHMANN_VERSION}/single_include/nlohmann/json.hpp" \
+        -O /opt/headers/nlohmann/json.hpp
+
+# ─── Step 3: QAIRT SDK slice (Genie + QNN headers + libGenie.so) ─────────────
+# Baked into the base image so ALL service Dockerfiles share one copy.
+# No service needs its own qairt-sdk/ directory in its build context.
+#
+# Prepare before building this image:
+#   QAIRT_SDK_ROOT=/path/to/qairt/2.45.0.260326 \
+#       bash scripts/download-qairt-sdk.sh --service base
+#
+# This copies from the repo-root qairt-sdk/ directory into /opt/qairt/ :
+#   /opt/qairt/include/Genie/                          ← Genie C++ headers
+#   /opt/qairt/include/QNN/                            ← QNN C++ headers
+#   /opt/qairt/lib/aarch64-oe-linux-gcc11.2/libGenie.so ← link-time library
+#
+# Services reference /opt/qairt/ directly in their cmake commands.
+# libGenie.so is NOT shipped in final runtime images — provided at runtime
+# via volume mount (-v /opt/:/opt/).
+COPY qairt-sdk/ /opt/qairt/
+
+# Convenience env var so cmake can find the SDK without hardcoding the path
+ENV QAIRT_SDK_ROOT=/opt/qairt
+
+LABEL org.opencontainers.image.title="GenAI-Studio-Build-Base"
+LABEL org.opencontainers.image.description="Ubuntu 24.04 ARM64 + cmake + gcc + Qualcomm fastrpc-dev + nlohmann + httplib + QAIRT SDK (builder only)"
+LABEL org.opencontainers.image.version="2.1.0"
+LABEL org.opencontainers.image.vendor="Qualcomm Innovation Center"

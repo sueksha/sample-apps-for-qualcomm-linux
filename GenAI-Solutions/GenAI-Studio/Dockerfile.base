@@ -1,0 +1,64 @@
+# Copyright (c) Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+#
+# GenAI Studio Base Image
+# Ubuntu 24.04 ARM64 + Qualcomm fastrpc + C++ build tools
+#
+# This is the shared base image for ALL GenAI Studio use cases.
+# It replaces the dependency on pre-built asr:latest / web-ui:latest images.
+#
+# ─── Build ───────────────────────────────────────────────────────────────────
+#   docker build -f Dockerfile.base -t genai-base:latest .
+#
+# ─── Prerequisites ───────────────────────────────────────────────────────────
+#   ubuntu:24.04 ARM64 must be available locally.
+#
+#   If Docker Hub is IP-restricted, bootstrap genai-base from asr:latest:
+#     bash scripts/bootstrap-base.sh
+#
+#   Or import ubuntu:24.04 from a machine with internet access:
+#     # On internet-connected machine:
+#     docker pull --platform linux/arm64 ubuntu:24.04
+#     docker save ubuntu:24.04 | gzip > ubuntu-noble-arm64.tar.gz
+#     # Copy to device, then:
+#     docker load < ubuntu-noble-arm64.tar.gz
+#     docker build -f Dockerfile.base -t genai-base:latest .
+
+FROM ubuntu:24.04
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# ─── C++ build tools ─────────────────────────────────────────────────────────
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        cmake \
+        make \
+        gcc \
+        g++ \
+        wget \
+        ca-certificates \
+        software-properties-common \
+        libatomic1 && \
+    rm -rf /var/lib/apt/lists/*
+
+# ─── Qualcomm fastrpc libraries (required for QNN / Genie SDK) ───────────────
+# These provide:
+#   - qcom-fastrpc-dev  : headers for FastRPC (DSP communication)
+#   - qcom-fastrpc1     : runtime FastRPC library
+#   - qcom-dspservices-headers-dev : DSP service headers
+RUN apt-add-repository -s ppa:ubuntu-qcom-iot/qcom-ppa && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        qcom-fastrpc1 \
+        qcom-libdmabufheap-dev \
+        qcom-fastrpc-dev \
+        qcom-dspservices-headers-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+LABEL org.opencontainers.image.title="GenAI Studio Base"
+LABEL org.opencontainers.image.description="Ubuntu 24.04 ARM64 + Qualcomm fastrpc + C++ build tools"
+LABEL org.opencontainers.image.version="1.0.0"
+LABEL org.opencontainers.image.vendor="Qualcomm Innovation Center"
+
+CMD ["/bin/bash"]

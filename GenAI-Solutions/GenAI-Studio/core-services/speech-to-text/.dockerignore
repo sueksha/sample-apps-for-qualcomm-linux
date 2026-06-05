@@ -1,0 +1,18 @@
+# Speech-to-Text build context exclusions
+# Only src/, whisper_sdk/, and run.sh are needed inside Docker.
+
+.git
+.gitignore
+.gitattributes
+README.md
+readme_assets/
+test_edge_cases.py
+test_wavs/
+
+# Build artifacts
+src/build/
+src/cpp-httplib/
+
+# Scripts (keep only run.sh)
+*.sh
+!run.sh

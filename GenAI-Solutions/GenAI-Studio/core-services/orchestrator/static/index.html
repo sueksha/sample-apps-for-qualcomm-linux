@@ -1,0 +1,2390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GenAI Studio v2</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3350;
+  --accent:#3b82f6;--accent2:#8b5cf6;--accent3:#10b981;--accent4:#f59e0b;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --red:#ef4444;--green:#22c55e;--yellow:#eab308;--orange:#f97316;
+  --radius:12px;--radius-sm:8px;--shadow:0 4px 24px rgba(0,0,0,.4);
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;gap:1rem;height:60px;position:sticky;top:0;z-index:100}
+.logo{font-size:1.25rem;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.logo span{font-weight:300;opacity:.7}
+.header-status{margin-left:auto;display:flex;gap:.5rem;align-items:center}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--text3)}
+.dot.ok{background:var(--green)}.dot.not_ready{background:var(--yellow)}.dot.error,.dot.unreachable{background:var(--red)}.dot.checking{background:var(--yellow);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;gap:.25rem;overflow-x:auto}
+.tab{padding:.75rem 1.25rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2);font-size:.9rem;font-weight:500;transition:all .2s;display:flex;align-items:center;gap:.5rem;user-select:none;white-space:nowrap}
+.tab:hover{color:var(--text);background:rgba(255,255,255,.04);border-radius:var(--radius-sm) var(--radius-sm) 0 0}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+main{flex:1;padding:2rem;max-width:1200px;width:100%;margin:0 auto}
+.page{display:none}.page.active{display:block}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1.5rem;box-shadow:var(--shadow)}
+.card-title{font-size:1rem;font-weight:600;margin-bottom:1rem;color:var(--text);display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.badge{font-size:.7rem;padding:.2rem .5rem;border-radius:20px;font-weight:600}
+.badge-blue{background:rgba(59,130,246,.2);color:var(--accent)}
+.badge-purple{background:rgba(139,92,246,.2);color:var(--accent2)}
+.badge-green{background:rgba(16,185,129,.2);color:var(--accent3)}
+.badge-orange{background:rgba(249,115,22,.2);color:var(--orange)}
+.badge-teal{background:rgba(20,184,166,.2);color:#2dd4bf}
+.endpoint-bar{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.mode-toggle{display:flex;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0}
+.mode-btn{padding:.35rem .9rem;font-size:.8rem;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--text3);transition:all .2s}
+.mode-btn.active{background:var(--accent);color:#fff}
+.mode-btn.cloud-active{background:var(--orange);color:#fff}
+.ep-url{flex:1;min-width:200px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.35rem .7rem;color:var(--text);font-size:.8rem;font-family:monospace;outline:none}
+.ep-url:focus{border-color:var(--accent)}
+.ep-key{width:200px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.35rem .7rem;color:var(--text);font-size:.8rem;font-family:monospace;outline:none}
+.ep-label{font-size:.75rem;color:var(--text3);white-space:nowrap}
+.ep-apply{padding:.35rem .8rem;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-size:.8rem;font-weight:600;cursor:pointer}
+.ep-apply:hover{background:#2563eb}
+.ep-status{font-size:.75rem;padding:.2rem .6rem;border-radius:20px}
+.ep-status.ok{background:rgba(34,197,94,.15);color:var(--green)}
+.ep-status.not_ready{background:rgba(234,179,8,.15);color:var(--yellow)}
+.ep-status.error,.ep-status.unreachable{background:rgba(239,68,68,.15);color:var(--red)}
+.ep-status.checking{background:rgba(234,179,8,.15);color:var(--yellow)}
+.dashboard-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem}
+.service-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;transition:border-color .2s}
+.service-card.ok{border-color:rgba(34,197,94,.3)}.service-card.error,.service-card.unreachable{border-color:rgba(239,68,68,.3)}
+.service-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.service-name{font-weight:600;font-size:1rem}.service-icon{font-size:2rem}
+.status-pill{padding:.25rem .75rem;border-radius:20px;font-size:.75rem;font-weight:600}
+.status-pill.ok{background:rgba(34,197,94,.15);color:var(--green)}.status-pill.not_ready{background:rgba(234,179,8,.15);color:var(--yellow)}.status-pill.error,.status-pill.unreachable{background:rgba(239,68,68,.15);color:var(--red)}.status-pill.checking{background:rgba(234,179,8,.15);color:var(--yellow)}
+.service-url{font-size:.8rem;color:var(--text3);margin-bottom:.75rem;font-family:monospace}
+.service-detail{font-size:.8rem;color:var(--text2);background:var(--surface2);border-radius:var(--radius-sm);padding:.75rem;font-family:monospace;white-space:pre-wrap;word-break:break-all;max-height:80px;overflow:auto}
+.openai-doc-note{font-size:.82rem;color:var(--text2);margin-bottom:1rem}
+.endpoint-doc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1rem}
+.endpoint-doc-service{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.85rem}
+.endpoint-doc-name{font-size:.9rem;font-weight:700;color:var(--text);margin-bottom:.65rem}
+.endpoint-doc-item{padding:.65rem 0;border-top:1px solid rgba(148,163,184,.15)}
+.endpoint-doc-item:first-of-type{border-top:none;padding-top:0}
+.ep-top{display:flex;align-items:center;gap:.55rem;margin-bottom:.3rem;flex-wrap:wrap}
+.ep-method{font-size:.68rem;font-weight:700;letter-spacing:.4px;padding:.18rem .48rem;border-radius:14px;min-width:44px;text-align:center}
+.ep-method.get{background:rgba(34,197,94,.15);color:var(--green)}
+.ep-method.post{background:rgba(59,130,246,.2);color:var(--accent)}
+.ep-path{font-size:.78rem;color:var(--text);font-family:monospace;word-break:break-all}
+.ep-note{font-size:.75rem;color:var(--text2);line-height:1.4}
+.ep-ui{margin-top:.22rem;font-size:.72rem;color:var(--text3);font-family:monospace}
+.openai-doc-base{margin-top:.9rem;font-size:.75rem;color:var(--text3);font-family:monospace}
+.refresh-btn{padding:.5rem 1rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text2);cursor:pointer;font-size:.85rem;transition:all .2s}
+.refresh-btn:hover{background:var(--border);color:var(--text)}
+.form-group{margin-bottom:1rem}
+label{display:block;font-size:.85rem;color:var(--text2);margin-bottom:.4rem;font-weight:500}
+input[type=text],input[type=number],input[type=password],select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.6rem .9rem;color:var(--text);font-size:.9rem;outline:none;transition:border-color .2s;font-family:inherit}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px}
+input[type=range]{flex:1;accent-color:var(--accent)}
+.btn{padding:.6rem 1.4rem;border-radius:var(--radius-sm);border:none;cursor:pointer;font-size:.9rem;font-weight:600;transition:all .2s;display:inline-flex;align-items:center;gap:.4rem}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#2563eb}.btn-primary:disabled{background:var(--text3);cursor:not-allowed}
+.btn-secondary{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}.btn-secondary:hover{background:var(--border);color:var(--text)}
+.btn-danger{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}.btn-danger:hover{background:rgba(239,68,68,.25)}
+.btn-teal{background:rgba(20,184,166,.15);color:#2dd4bf;border:1px solid rgba(20,184,166,.3)}.btn-teal:hover{background:rgba(20,184,166,.25)}
+.btn-row{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap}
+.chat-window{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);height:400px;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:.75rem;margin-bottom:1rem}
+.msg{max-width:80%;padding:.75rem 1rem;border-radius:var(--radius);font-size:.9rem;line-height:1.5}
+.msg.user{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+.msg.assistant{background:var(--surface);border:1px solid var(--border);align-self:flex-start;border-bottom-left-radius:4px;white-space:pre-wrap}
+.msg.system-msg{background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.2);color:var(--text2);font-size:.8rem;align-self:center;border-radius:20px;padding:.4rem .9rem}
+.msg.thinking{background:var(--surface);border:1px solid var(--border);align-self:flex-start;color:var(--text3);font-style:italic;border-bottom-left-radius:4px}
+.chat-input-row{display:flex;gap:.75rem}
+.chat-input-row textarea{flex:1;min-height:44px;max-height:120px;resize:none;padding:.6rem .9rem}
+.chat-meta{display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-bottom:.75rem}
+.chat-meta label{margin-bottom:0;white-space:nowrap}
+.chat-meta input,.chat-meta select{width:auto}
+.drop-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:2.5rem;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface2)}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:rgba(59,130,246,.05)}
+.drop-zone .dz-icon{font-size:2.5rem;margin-bottom:.5rem}
+.drop-zone .dz-text{color:var(--text2);font-size:.9rem}
+.drop-zone .dz-hint{color:var(--text3);font-size:.8rem;margin-top:.25rem}
+.audio-player{width:100%;margin-top:.75rem;border-radius:var(--radius-sm)}
+.transcript-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;min-height:100px;font-size:.95rem;line-height:1.6;white-space:pre-wrap}
+.transcript-meta{display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:.75rem}
+.meta-item{font-size:.8rem;color:var(--text2)}.meta-item span{color:var(--text);font-weight:600}
+.segments-list{margin-top:1rem;display:flex;flex-direction:column;gap:.5rem}
+.segment{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.6rem .9rem;font-size:.85rem;display:flex;gap:.75rem;align-items:flex-start}
+.seg-time{color:var(--accent);font-family:monospace;white-space:nowrap;font-size:.8rem;min-width:90px}
+.timing-panel{margin-top:1rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.85rem}
+.timing-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.5rem}
+.timing-title{font-size:.8rem;color:var(--text);font-weight:700}
+.timing-sub{font-size:.72rem;color:var(--text3)}
+.timing-table table{width:100%;border-collapse:collapse}
+.timing-table th,.timing-table td{padding:.35rem .2rem;border-bottom:1px solid rgba(148,163,184,.12);font-size:.74rem}
+.timing-table th{text-align:left;color:var(--text3);font-weight:600}
+.timing-table td{color:var(--text2)}
+.timing-table td.metric-val{color:var(--text);font-family:monospace}
+.timing-empty{font-size:.74rem;color:var(--text3)}
+.img-layout{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+@media(max-width:700px){.img-layout{grid-template-columns:1fr}}
+.img-output{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);min-height:300px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.img-output img{max-width:100%;max-height:512px;border-radius:var(--radius);display:block}
+.img-placeholder{color:var(--text3);text-align:center;padding:2rem}
+.img-placeholder .ph-icon{font-size:3rem;margin-bottom:.5rem}
+.i2t-layout{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+@media(max-width:800px){.i2t-layout{grid-template-columns:1fr}}
+.i2t-img-panel{display:flex;flex-direction:column;gap:1rem}
+.i2t-img-preview{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);min-height:200px;max-height:300px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.i2t-img-preview img{max-width:100%;max-height:300px;border-radius:var(--radius);display:block;object-fit:contain}
+.i2t-drop-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:2rem;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface2)}
+.i2t-drop-zone:hover,.i2t-drop-zone.drag-over{border-color:#2dd4bf;background:rgba(20,184,166,.05)}
+.i2t-drop-zone .dz-icon{font-size:2.5rem;margin-bottom:.5rem}
+.i2t-drop-zone .dz-text{color:var(--text2);font-size:.9rem}
+.i2t-drop-zone .dz-hint{color:var(--text3);font-size:.8rem;margin-top:.25rem}
+.i2t-status-bar{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.5rem .9rem;font-size:.8rem;color:var(--text2);font-family:monospace}
+.i2t-status-bar.ready{border-color:rgba(34,197,94,.3);color:var(--green)}
+.i2t-status-bar.processing{border-color:rgba(234,179,8,.3);color:var(--yellow)}
+.i2t-status-bar.error{border-color:rgba(239,68,68,.3);color:var(--red)}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hidden{display:none!important}
+.alert{padding:.75rem 1rem;border-radius:var(--radius-sm);font-size:.85rem;margin-bottom:1rem}
+.alert-error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#fca5a5}
+.alert-info{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);color:#93c5fd}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:var(--surface)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">GenAI Studio <span>v2</span></div>
+  <div class="header-status">
+  <div class="dot checking" id="dot-tg" title="Text-Generation"></div>
+  <div class="dot checking" id="dot-stt" title="Speech-To-Text"></div>
+  <div class="dot checking" id="dot-tts" title="Text-To-Speech"></div>
+  <div class="dot checking" id="dot-i2t" title="Image-To-Text"></div>
+  <div class="dot checking" id="dot-img" title="Image-Generation"></div>
+    <span style="font-size:.8rem;color:var(--text3);margin-left:.25rem">Services</span>
+  </div>
+</header>
+
+<nav>
+  <div class="tab active" onclick="showPage('dashboard')" id="tab-dashboard"><span>&#127968;</span> Dashboard</div>
+  <div class="tab" onclick="showPage('textgen')" id="tab-textgen"><span>&#128172;</span> Text Generation</div>
+  <div class="tab" onclick="showPage('stt')" id="tab-stt"><span>&#127897;&#65039;</span> Speech-to-Text</div>
+  <div class="tab" onclick="showPage('tts')" id="tab-tts"><span>&#128266;</span> Text-to-Speech</div>
+  <div class="tab" onclick="showPage('i2t')" id="tab-i2t"><span>&#128444;&#65039;</span> Image-To-Text</div>
+  <div class="tab" onclick="showPage('imggen')" id="tab-imggen"><span>&#127912;</span> Image Generation</div>
+</nav>
+
+<main>
+
+<!-- DASHBOARD -->
+<div class="page active" id="page-dashboard">
+  <div class="card">
+    <div class="card-title">
+      &#127968; Service Dashboard
+      <button class="refresh-btn" onclick="refreshStatus()" style="margin-left:auto">&#8635; Refresh</button>
+    </div>
+    <div class="dashboard-grid" id="dashboardGrid"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">
+      &#128279; OpenAI Endpoints Used
+      <span class="badge badge-orange">Orchestrator Surface</span>
+    </div>
+    <div class="openai-doc-note">
+      UI actions use <code>/api/*</code> routes internally, and those map to these OpenAI-compatible endpoints.
+    </div>
+    <div class="endpoint-doc-grid" id="openaiDocGrid"></div>
+    <div class="openai-doc-base" id="openaiDocBase"></div>
+  </div>
+</div>
+
+<!-- TEXT GENERATION -->
+<div class="page" id="page-textgen">
+  <div class="endpoint-bar">
+    <span class="ep-label">Mode:</span>
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="tg-mode-device" onclick="setMode('tg','device')">On-Device</button>
+      <button class="mode-btn" id="tg-mode-cloud" onclick="setMode('tg','cloud')">Cloud</button>
+    </div>
+    <span class="ep-label">Endpoint:</span>
+    <input class="ep-url" id="tg-ep-url" value="http://localhost:8088">
+    <input class="ep-key hidden" id="tg-ep-key" type="password" placeholder="OpenAI API Key">
+    <button class="ep-apply" onclick="applyEndpoint('tg')">Apply</button>
+    <span class="ep-status checking" id="tg-ep-status">checking...</span>
+  </div>
+  <div class="card">
+    <div class="card-title">Text Generation <span class="badge badge-blue" id="tg-badge">On-Device port 8088</span></div>
+    <div class="form-group">
+      <label>System Prompt (optional)</label>
+      <textarea id="tgSystem" rows="2" placeholder="You are a helpful AI assistant."></textarea>
+    </div>
+    <div class="chat-meta">
+      <div><label>Max Tokens</label><input type="number" id="tgMaxTokens" value="256" min="1" max="4096" style="width:90px"></div>
+      <div><label>Temperature</label><input type="number" id="tgTemp" value="0.7" min="0" max="2" step="0.1" style="width:80px"></div>
+      <div style="display:flex;align-items:center;gap:.5rem;margin-top:1.2rem">
+        <input type="checkbox" id="tgStream" checked style="width:auto;accent-color:var(--accent)">
+        <label for="tgStream" style="margin-bottom:0">Streaming</label>
+      </div>
+            <div style="display:flex;align-items:center;gap:.5rem;margin-top:1.2rem">
+        <label style="margin-bottom:0;white-space:nowrap">Active Model:</label>
+        <select id="tgModelSelect" style="flex:1;max-width:260px" onchange="loadSelectedTgModel()">
+          <option value="">Loading models...</option>
+        </select>
+        <button class="btn btn-secondary" style="padding:.4rem .7rem" onclick="refreshTgModels()" title="Refresh model list">&#8635;</button>
+      </div>
+    </div>
+    <div id="tgModelInfo" style="font-size:.75rem;color:var(--text3);margin:-.25rem 0 .75rem 0">
+      Active model: unknown
+    </div>
+    <div class="chat-window" id="chatWindow">
+      <div class="msg system-msg">Chat started - type a message below</div>
+    </div>
+    <div class="chat-input-row">
+      <textarea id="chatInput" placeholder="Type your message... (Enter to send, Shift+Enter for newline)" rows="2" onkeydown="chatKeydown(event)"></textarea>
+      <button class="btn btn-primary" id="sendBtn" onclick="sendChat()"><span id="sendBtnText">Send</span></button>
+    </div>
+    <div class="btn-row" style="margin-top:.75rem">
+      <button class="btn btn-secondary" onclick="clearChat()">Clear Chat</button>
+      <button class="btn btn-danger" id="tg-reset-btn" onclick="resetModel()">Reset Model</button>
+      <span id="tgStatus" style="font-size:.8rem;color:var(--text3)"></span>
+    </div>
+    <div class="timing-panel">
+      <div class="timing-head">
+        <div class="timing-title">Timing Metrics (Current / Average)</div>
+        <div class="timing-sub" id="tgTimingMeta">No runs yet</div>
+      </div>
+      <div id="tgTimingTable" class="timing-table"><div class="timing-empty">Send a request to populate timings.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- SPEECH-TO-TEXT -->
+<div class="page" id="page-stt">
+  <div class="endpoint-bar">
+    <span class="ep-label">Mode:</span>
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="stt-mode-device" onclick="setMode('stt','device')">On-Device</button>
+      <button class="mode-btn" id="stt-mode-cloud" onclick="setMode('stt','cloud')">Cloud</button>
+    </div>
+    <span class="ep-label">Endpoint:</span>
+    <input class="ep-url" id="stt-ep-url" value="http://localhost:8081">
+    <input class="ep-key hidden" id="stt-ep-key" type="password" placeholder="OpenAI API Key">
+    <button class="ep-apply" onclick="applyEndpoint('stt')">Apply</button>
+    <span class="ep-status checking" id="stt-ep-status">checking...</span>
+  </div>
+  <div class="card">
+    <div class="card-title">Speech-to-Text <span class="badge badge-purple" id="stt-badge">On-Device port 8081</span></div>
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('audioFile').click()"
+         ondragover="dzDragOver(event)" ondragleave="dzDragLeave(event)" ondrop="dzDrop(event)">
+      <div class="dz-icon">&#127925;</div>
+      <div class="dz-text">Click to select or drag and drop an audio file</div>
+      <div class="dz-hint">WAV, MP3, OGG, FLAC, M4A supported</div>
+    </div>
+    <input type="file" id="audioFile" accept="audio/*" class="hidden" onchange="audioSelected(event)">
+    <audio id="audioPlayer" class="audio-player hidden" controls></audio>
+    <div id="sttMicHelp" style="margin-top:.75rem;font-size:.8rem;color:var(--text3)">Pre-recorded audio upload only. Live microphone capture is disabled.</div>
+    <div id="sttModelHint" style="margin-top:.25rem;font-size:.8rem;color:var(--text3)">Default model: <code>whisper-tiny</code>. Standard upload is the recommended path for normal audio files.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-top:1rem">
+      <div class="form-group">
+        <label>Task</label>
+        <select id="sttTask"><option value="transcribe">Transcribe</option><option value="translate">Translate to English</option></select>
+      </div>
+      <div class="form-group">
+        <label>Language</label>
+        <select id="sttLang"><option value="">Auto-detect</option></select>
+      </div>
+      <div class="form-group">
+        <label>Response Format</label>
+        <select id="sttFormat">
+          <option value="verbose_json">Verbose JSON</option>
+          <option value="json">JSON</option>
+          <option value="text">Plain Text</option>
+        </select>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="transcribeBtn" onclick="transcribeAudio()" disabled>
+        <span id="transcribeBtnText">Transcribe</span>
+      </button>
+      <button class="btn btn-secondary" id="sttClearBtn" onclick="clearStt()">Clear</button>
+      <span id="sttStatus" style="font-size:.8rem;color:var(--text3)"></span>
+    </div>
+    <details class="timing-panel" id="sttRealtimePanel" style="margin-top:1rem">
+      <summary style="cursor:pointer">
+        <span style="display:block;font-weight:600;color:var(--text1)">Advanced Realtime Upload (/v1/realtime/*)</span>
+        <span style="display:block;font-size:.8rem;color:var(--text3);margin-top:.25rem">Optional chunked session flow for the selected audio file. No live microphone capture is used.</span>
+      </summary>
+      <div style="margin-top:.9rem">
+        <div class="btn-row">
+          <button class="btn btn-teal" id="sttRtProcessBtn" onclick="transcribeAudioViaRealtime()" disabled>Process Uploaded File via Realtime</button>
+          <span id="sttRtTransport" style="font-size:.75rem;color:var(--text3)"></span>
+          <span id="sttRtStatus" style="font-size:.8rem;color:var(--text3)"></span>
+        </div>
+        <div class="transcript-box" id="sttRealtimeText" style="min-height:80px;margin-top:.75rem">(Realtime transcript progress will appear here)</div>
+      </div>
+    </details>
+    <div class="timing-panel">
+      <div class="timing-head">
+        <div class="timing-title">Timing Metrics (Current / Average)</div>
+        <div class="timing-sub" id="sttTimingMeta">No runs yet</div>
+      </div>
+      <div id="sttTimingTable" class="timing-table"><div class="timing-empty">Transcribe audio to populate timings.</div></div>
+    </div>
+  </div>
+  <div class="card" id="sttResultCard" style="display:none">
+    <div class="card-title">Transcription Result</div>
+    <div class="transcript-box" id="transcriptText"></div>
+    <div class="transcript-meta" id="transcriptMeta"></div>
+    <div class="segments-list" id="segmentsList"></div>
+  </div>
+</div>
+
+<!-- TEXT-TO-SPEECH -->
+<div class="page" id="page-tts">
+  <div class="endpoint-bar">
+    <span class="ep-label">Endpoint:</span>
+    <input class="ep-url" id="tts-ep-url" value="http://localhost:8083">
+    <input class="ep-key hidden" id="tts-ep-key" type="password" placeholder="OpenAI API Key">
+    <button class="ep-apply" onclick="applyEndpoint('tts')">Apply</button>
+    <span class="ep-status checking" id="tts-ep-status">checking...</span>
+  </div>
+  <div class="card">
+    <div class="card-title">Text-to-Speech <span class="badge badge-orange" id="tts-badge">On-Device port 8083</span></div>
+    <div class="form-group">
+      <label>Input Text</label>
+      <textarea id="ttsText" rows="4" placeholder="Type text to speak..."></textarea>
+    </div>
+    <div class="chat-meta">
+      <div>
+        <label>Voice (fixed)</label>
+        <select id="ttsVoice" style="width:170px" disabled title="Voice is fixed for now">
+          <option value="alloy" selected>alloy</option>
+        </select>
+      </div>
+      <div>
+        <label>Format</label>
+        <select id="ttsFormat" style="width:120px">
+          <option value="wav">wav</option>
+          <option value="pcm">pcm</option>
+        </select>
+      </div>
+      <div style="width:150px">
+        <label>Speed (fixed): <span id="ttsSpeedVal">1.00</span></label>
+        <input type="range" id="ttsSpeed" min="0.25" max="4" step="0.05" value="1.0" disabled title="Speed is fixed for now">
+      </div>
+      <div style="display:flex;align-items:center;gap:.5rem;margin-top:1.2rem">
+        <label style="margin-bottom:0;white-space:nowrap">Model:</label>
+        <select id="ttsModel" style="width:140px">
+          <option value="tts-1">tts-1</option>
+          <option value="tts-1-hd">tts-1-hd</option>
+        </select>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="ttsSpeakBtn" onclick="speakTts()"><span id="ttsSpeakBtnText">Speak</span></button>
+      <button class="btn btn-secondary" onclick="clearTts()">Clear</button>
+      <span id="ttsStatus" style="font-size:.8rem;color:var(--text3)"></span>
+    </div>
+    <audio id="ttsPlayer" class="audio-player hidden" controls></audio>
+    <div id="ttsMeta" style="margin-top:.75rem;font-size:.8rem;color:var(--text3)"></div>
+    <div class="timing-panel">
+      <div class="timing-head">
+        <div class="timing-title">Timing Metrics (Current / Average)</div>
+        <div class="timing-sub" id="ttsTimingMeta">No runs yet</div>
+      </div>
+      <div id="ttsTimingTable" class="timing-table"><div class="timing-empty">Speak text to populate timings.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- IMAGE-TO-TEXT -->
+<div class="page" id="page-i2t">
+  <div class="endpoint-bar">
+    <span class="ep-label">Mode:</span>
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="i2t-mode-device" onclick="setMode('i2t','device')">On-Device</button>
+      <button class="mode-btn" id="i2t-mode-cloud" onclick="setMode('i2t','cloud')">Cloud</button>
+    </div>
+    <span class="ep-label">Endpoint:</span>
+    <input class="ep-url" id="i2t-ep-url" value="http://localhost:8080">
+    <input class="ep-key hidden" id="i2t-ep-key" type="password" placeholder="OpenAI API Key">
+    <button class="ep-apply" onclick="applyEndpoint('i2t')">Apply</button>
+    <span class="ep-status checking" id="i2t-ep-status">checking...</span>
+  </div>
+  <div class="card">
+    <div class="card-title">Image-To-Text (Vision) <span class="badge badge-teal" id="i2t-badge">On-Device port 8080</span></div>
+    <div class="i2t-layout">
+      <!-- Left panel: upload + settings -->
+      <div class="i2t-img-panel">
+        <div class="i2t-drop-zone" id="i2tDropZone"
+             onclick="document.getElementById('i2tImageFile').click()"
+             ondragover="i2tDragOver(event)" ondragleave="i2tDragLeave(event)" ondrop="i2tDrop(event)">
+          <div class="dz-icon">&#128444;&#65039;</div>
+          <div class="dz-text">Click to select or drag and drop an image</div>
+          <div class="dz-hint">JPG, PNG, WEBP, GIF supported</div>
+        </div>
+        <input type="file" id="i2tImageFile" accept="image/*" class="hidden" onchange="i2tImageSelected(event)">
+
+        <div class="i2t-img-preview hidden" id="i2tImgPreview">
+          <img id="i2tImgEl" src="" alt="Preview">
+        </div>
+
+        <div class="form-group">
+          <label>Initial Prompt</label>
+          <textarea id="i2tPrompt" rows="2">Describe what you see in this image.</textarea>
+        </div>
+
+        <div class="chat-meta">
+          <div><label>Max Tokens</label><input type="number" id="i2tMaxTokens" value="128" min="1" max="2048" style="width:90px"></div>
+          <div style="display:flex;align-items:center;gap:.5rem;margin-top:1.2rem">
+            <input type="checkbox" id="i2tStream" checked style="width:auto;accent-color:#2dd4bf">
+            <label for="i2tStream" style="margin-bottom:0">Streaming</label>
+          </div>
+        </div>
+
+        <div id="i2tStatusBar" class="i2t-status-bar">Ready - upload an image to begin</div>
+
+        <div class="btn-row">
+          <button class="btn btn-teal" id="i2tAnalyzeBtn" onclick="i2tAnalyze()" disabled>
+            <span id="i2tAnalyzeBtnText">Analyze Image</span>
+          </button>
+          <button class="btn btn-secondary" onclick="i2tClear()">Clear</button>
+          <button class="btn btn-danger" onclick="i2tReset()">Reset Session</button>
+        </div>
+      </div>
+
+      <!-- Right panel: chat window + follow-up -->
+      <div>
+        <div class="chat-window" id="i2tChatWindow" style="height:460px">
+          <div class="msg system-msg">Upload an image and click Analyze Image</div>
+        </div>
+        <div class="chat-input-row">
+          <textarea id="i2tFollowInput" placeholder="Ask a follow-up question about the image... (Enter to send)" rows="2"
+                    onkeydown="i2tFollowKeydown(event)" disabled></textarea>
+          <button class="btn btn-primary" id="i2tFollowBtn" onclick="i2tFollowUp()" disabled>
+            <span id="i2tFollowBtnText">Send</span>
+          </button>
+        </div>
+        <div id="i2tFollowHint" style="margin-top:.5rem;font-size:.75rem;color:var(--text3)">
+          Follow-up locked. Upload and analyze an image first.
+        </div>
+        <div class="timing-panel">
+          <div class="timing-head">
+            <div class="timing-title">Timing Metrics (Current / Average)</div>
+            <div class="timing-sub" id="i2tTimingMeta">No runs yet</div>
+          </div>
+          <div id="i2tTimingTable" class="timing-table"><div class="timing-empty">Analyze an image to populate timings.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- IMAGE GENERATION -->
+<div class="page" id="page-imggen">
+  <div class="endpoint-bar">
+    <span class="ep-label">Mode:</span>
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="img-mode-device" onclick="setMode('img','device')">On-Device</button>
+      <button class="mode-btn" id="img-mode-cloud" onclick="setMode('img','cloud')">Cloud</button>
+    </div>
+    <span class="ep-label">Endpoint:</span>
+    <input class="ep-url" id="img-ep-url" value="http://localhost:8090">
+    <input class="ep-key hidden" id="img-ep-key" type="password" placeholder="OpenAI API Key">
+    <button class="ep-apply" onclick="applyEndpoint('img')">Apply</button>
+    <span class="ep-status checking" id="img-ep-status">checking...</span>
+  </div>
+  <div class="card">
+    <div class="card-title">Image Generation <span class="badge badge-green" id="img-badge">On-Device via Orchestrator 8090</span></div>
+    <div class="img-layout">
+      <div>
+        <div class="form-group"><label>Prompt</label><textarea id="imgPrompt" rows="3" placeholder="A futuristic city skyline at sunset"></textarea></div>
+        <div class="form-group"><label>Negative Prompt</label><textarea id="imgNegPrompt" rows="2" placeholder="blurry, low quality"></textarea></div>
+        <div id="img-device-params">
+          <div class="form-group"><label>Steps: <span id="stepsVal">20</span></label><input type="range" id="imgSteps" min="1" max="50" value="20" oninput="document.getElementById('stepsVal').textContent=this.value"></div>
+          <div class="form-group"><label>Guidance: <span id="guidanceVal">7.5</span></label><input type="range" id="imgGuidance" min="1" max="20" value="7.5" step="0.5" oninput="document.getElementById('guidanceVal').textContent=this.value"></div>
+          <div class="form-group"><label>Seed (-1=random)</label><input type="number" id="imgSeed" value="-1"></div>
+        </div>
+        <div id="img-cloud-params" class="hidden">
+          <div class="form-group"><label>Model</label><select id="imgCloudModel"><option value="dall-e-3">DALL-E 3</option><option value="dall-e-2">DALL-E 2</option></select></div>
+          <div class="form-group"><label>Size</label><select id="imgCloudSize"><option value="1024x1024">1024x1024</option><option value="1792x1024">1792x1024</option><option value="1024x1792">1024x1792</option></select></div>
+          <div class="form-group"><label>Quality</label><select id="imgCloudQuality"><option value="standard">Standard</option><option value="hd">HD</option></select></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="generateBtn" onclick="generateImage()"><span id="generateBtnText">Generate</span></button>
+          <button class="btn btn-secondary" onclick="clearImage()">Clear</button>
+          <span id="imgStatus" style="font-size:.8rem;color:var(--text3)"></span>
+        </div>
+      </div>
+      <div>
+        <div class="img-output" id="imgOutput"><div class="img-placeholder"><div class="ph-icon">&#128444;&#65039;</div><div>Generated image will appear here</div></div></div>
+        <div id="imgMeta" style="margin-top:.75rem;font-size:.8rem;color:var(--text3)"></div>
+        <button class="btn btn-secondary hidden" id="downloadBtn" onclick="downloadImage()" style="margin-top:.75rem">Download</button>
+        <div class="timing-panel">
+          <div class="timing-head">
+            <div class="timing-title">Timing Metrics (Current / Average)</div>
+            <div class="timing-sub" id="imgTimingMeta">No runs yet</div>
+          </div>
+          <div id="imgTimingTable" class="timing-table"><div class="timing-empty">Generate an image to populate timings.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+const DEFAULT_ENDPOINTS = {
+  tg:  {device:'http://localhost:8088',cloud:'https://api.openai.com',key:'',mode:'device'},
+  stt: {device:'http://localhost:8081',cloud:'https://api.openai.com',key:'',mode:'device'},
+  i2t: {device:'http://localhost:8080',cloud:'https://api.openai.com',key:'',mode:'device'},
+  img: {device:'http://localhost:8090',cloud:'https://api.openai.com',key:'',mode:'device'},
+  tts: {device:'http://localhost:8083',cloud:'',key:'',mode:'device'},
+};
+const STT_UI_FLAGS = {
+  // Standard upload remains primary; realtime stays behind the advanced panel.
+  enableRealtimeAdvancedUpload: true,
+  enableRealtimeEndpointPicker: false,
+  enableMicCapture: false,
+};
+const TTS_LOCKED_VOICE='alloy';
+const TTS_LOCKED_SPEED=1.0;
+function loadCfg(){
+  try{
+    const s=JSON.parse(localStorage.getItem('genai_cfg'))||{};
+    const d=JSON.parse(JSON.stringify(DEFAULT_ENDPOINTS));
+    const merged=Object.assign(d,s);
+    // Migrate old ImageGen device endpoint default (8084) to orchestrator (8090).
+    if(merged?.img?.device==='http://localhost:8084')merged.img.device='http://localhost:8090';
+    return merged;
+  }catch(_){
+    return JSON.parse(JSON.stringify(DEFAULT_ENDPOINTS));
+  }
+}
+function saveCfg(c){localStorage.setItem('genai_cfg',JSON.stringify(c));}
+let cfg=loadCfg();
+const chatHistory=[];
+let tgLocalModels=[];
+let currentAudioFile=null,currentAudioDurationSec=null,lastImageB64=null,lastImageUrl=null;
+let lastTtsAudioUrl=null,lastTtsAudioBlob=null;
+let micMediaRecorder=null,micMediaStream=null,micChunks=[],micStartTs=0,micAutoStopTimer=null,micTickTimer=null;
+let realtimeSessionId=null,realtimeMediaStream=null,realtimeAudioContext=null,realtimeSourceNode=null,realtimeProcessorNode=null;
+let realtimeChunkQueue=[],realtimeFlushTimer=null,realtimeInFlight=false,realtimeLive=false,realtimeText='';
+let realtimeWs=null,realtimeTransport='ws',realtimeFinalizeWaiter=null;
+// i2t state — i2tSessionId tracks the KV-cache session for follow-up questions
+let i2tCurrentFile=null,i2tChatHistory=[],i2tAnalyzed=false,i2tSessionId=null;
+const I2T_CONTEXT_LIMIT_MSG='context limit exceeded for this session';
+const I2T_CONTEXT_RESET_NOTICE='Context limit reached. Session reset. Please ask again.';
+const TG_BUSY_BUTTON_IDS=[
+  'sendBtn',
+  'tg-reset-btn',
+  'tg-load-btn',
+  'transcribeBtn',
+  'sttRtProcessBtn',
+  'ttsSpeakBtn',
+  'i2tAnalyzeBtn',
+  'i2tFollowBtn',
+  'generateBtn',
+];
+let tgUiBusy=false;
+let tgUiPreviousDisabled={};
+const SERVICE_STATUS_CACHE={};
+let sttUiBusy=false;
+
+function setGlobalUiBusy(locked,statusMessage=''){
+  const statusEl=document.getElementById('tgStatus');
+  if(locked){
+    if(statusMessage&&statusEl)statusEl.textContent=statusMessage;
+    if(tgUiBusy)return;
+    tgUiBusy=true;
+    tgUiPreviousDisabled={};
+    TG_BUSY_BUTTON_IDS.forEach(id=>{
+      const el=document.getElementById(id);
+      if(!el)return;
+      tgUiPreviousDisabled[id]=!!el.disabled;
+      el.disabled=true;
+    });
+    return;
+  }
+  if(!tgUiBusy)return;
+  TG_BUSY_BUTTON_IDS.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    el.disabled=!!tgUiPreviousDisabled[id];
+  });
+  tgUiPreviousDisabled={};
+  tgUiBusy=false;
+}
+
+function updateServiceStatusCache(services){
+  if(!Array.isArray(services))return;
+  services.forEach(s=>{
+    if(!s||!s.name)return;
+    SERVICE_STATUS_CACHE[s.name]=s;
+  });
+}
+
+function isServiceReadyForUi(serviceName){
+  const status=SERVICE_STATUS_CACHE[serviceName];
+  if(!status)return true;
+  if(status.status!=='ok')return false;
+  const readyStatus=String(status.ready_status||'unsupported');
+  return readyStatus==='ready'||readyStatus==='unsupported';
+}
+
+function ensureServiceReady(serviceName,statusElementId){
+  if(isServiceReadyForUi(serviceName))return true;
+  const status=SERVICE_STATUS_CACHE[serviceName]||{};
+  const readyStatus=String(status.ready_status||'unknown');
+  const statusEl=statusElementId?document.getElementById(statusElementId):null;
+  if(statusEl){
+    statusEl.textContent=serviceName+' is not ready ('+readyStatus+'). Check /api/status.';
+  }
+  return false;
+}
+
+function toNum(v){const n=Number(v);return Number.isFinite(n)?n:null;}
+function firstPositive(...values){
+  for(const value of values){
+    const n=toNum(value);
+    if(n!==null&&n>0)return n;
+  }
+  return null;
+}
+function approxTokenCount(text){
+  if(!text||!String(text).trim())return 0;
+  return String(text).trim().split(/\s+/).length;
+}
+
+const TIMING_SPECS={
+  tg:[
+    {k:'server_total_ms',l:'Model Backend Total',u:'ms',importance:10.0},
+    {k:'prefill_ms',l:'Model Prefill / TTFT',u:'ms',importance:9.5},
+    {k:'token_rate_tps',l:'Model Token Rate',u:'tok/s',importance:9.2},
+    {k:'inter_token_latency_ms',l:'Model Inter-Token Latency',u:'ms',importance:8.9},
+    {k:'communication_total_ms',l:'Client End-to-End',u:'ms',importance:8.5},
+    {k:'communication_overhead_ms',l:'Transport + Proxy Overhead',u:'ms',importance:7.8},
+    {k:'output_tokens',l:'Output Tokens',u:'tok',importance:7.5},
+    {k:'orchestrator_request_setup_ms',l:'Orchestrator Request Setup',u:'ms',importance:4.5},
+    {k:'orchestrator_upstream_setup_ms',l:'Orchestrator Upstream Setup',u:'ms',importance:4.0},
+    {k:'orchestrator_parse_ms',l:'Orchestrator JSON Parse',u:'ms',importance:3.0},
+  ],
+  stt:[
+    {k:'engine_total_ms',l:'ASR Engine Inference Total',u:'ms',importance:10.0},
+    {k:'request_total_ms',l:'ASR Service Request Total',u:'ms',importance:9.5},
+    {k:'engine_wait_ms',l:'ASR Engine Decode Wait',u:'ms',importance:8.6},
+    {k:'communication_total_ms',l:'Client End-to-End',u:'ms',importance:8.4},
+    {k:'audio_duration_s',l:'Input Audio Duration',u:'s',importance:7.8},
+    {k:'lock_wait_ms',l:'ASR Engine Lock Wait',u:'ms',importance:7.2},
+    {k:'orchestrator_upstream_ms',l:'Orchestrator -> ASR Roundtrip',u:'ms',importance:6.8},
+    {k:'engine_feed_ms',l:'ASR Engine Audio Feed',u:'ms',importance:5.5},
+    {k:'orchestrator_read_file_ms',l:'Orchestrator File Read',u:'ms',importance:2.5},
+  ],
+  tts:[
+    {k:'communication_total_ms',l:'Client End-to-End',u:'ms',importance:10.0},
+    {k:'request_total_ms',l:'TTS Backend Total',u:'ms',importance:9.6},
+    {k:'process_time_ms',l:'TTS Engine Process Time',u:'ms',importance:9.2},
+    {k:'orchestrator_total_ms',l:'Orchestrator Request Total',u:'ms',importance:8.8},
+    {k:'communication_overhead_ms',l:'Transport + Proxy Overhead',u:'ms',importance:8.2},
+    {k:'audio_duration_s',l:'Output Audio Duration',u:'s',importance:8.2},
+    {k:'audio_bytes',l:'Audio Bytes',u:'count',importance:6.0},
+    {k:'input_chars',l:'Input Characters',u:'count',importance:5.0},
+  ],
+  i2t:[
+    {k:'vision_server_total_ms',l:'VLM Backend Total',u:'ms',importance:10.0},
+    {k:'preprocess_ms',l:'Image Preprocess',u:'ms',importance:9.4},
+    {k:'prefill_ms',l:'VLM Prefill / TTFT',u:'ms',importance:9.0},
+    {k:'token_rate_tps',l:'VLM Token Rate',u:'tok/s',importance:8.7},
+    {k:'inter_token_latency_ms',l:'VLM Inter-Token Latency',u:'ms',importance:8.5},
+    {k:'communication_total_ms',l:'Client End-to-End',u:'ms',importance:8.4},
+    {k:'output_tokens',l:'Output Tokens',u:'tok',importance:7.2},
+    {k:'image_fetch_ms',l:'Image Fetch',u:'ms',importance:7.1},
+    {k:'orchestrator_request_setup_ms',l:'Orchestrator Request Setup',u:'ms',importance:4.2},
+    {k:'orchestrator_upstream_setup_ms',l:'Orchestrator Upstream Setup',u:'ms',importance:4.0},
+    {k:'orchestrator_parse_ms',l:'Orchestrator JSON Parse',u:'ms',importance:3.0},
+  ],
+  img:[
+    {k:'engine_total_ms',l:'Image Engine Inference Total',u:'ms',importance:10.0},
+    {k:'request_total_ms',l:'Image Service Request Total',u:'ms',importance:9.4},
+    {k:'engine_runner_exec_ms',l:'Image Engine Runner Exec',u:'ms',importance:9.2},
+    {k:'communication_total_ms',l:'Client End-to-End',u:'ms',importance:8.2},
+    {k:'cache_hit_count',l:'Cache Hits',u:'count',importance:8.0},
+    {k:'orchestrator_upstream_ms',l:'Orchestrator -> Image Service Roundtrip',u:'ms',importance:7.4},
+    {k:'orchestrator_arbitration_ms',l:'Orchestrator Arbitration',u:'ms',importance:7.3},
+    {k:'engine_denoise_ms',l:'Image Engine Denoise (QNN Path)',u:'ms',importance:7.0},
+    {k:'engine_png_encode_ms',l:'Image PNG Encode',u:'ms',importance:6.8},
+    {k:'engine_ppm_read_ms',l:'Image Engine PPM Read',u:'ms',importance:6.4},
+    {k:'orchestrator_normalize_body_ms',l:'Orchestrator Request Normalize',u:'ms',importance:3.0},
+    {k:'orchestrator_read_body_ms',l:'Orchestrator Body Read',u:'ms',importance:2.5},
+  ],
+};
+function makePerfState(){return{runs:0,lastLabel:'',lastAt:'',current:{},agg:{}};}
+const PERF_STATE={tg:makePerfState(),stt:makePerfState(),tts:makePerfState(),i2t:makePerfState(),img:makePerfState()};
+
+function formatMetric(val,unit){
+  const n=toNum(val);
+  if(n===null)return '-';
+  if(unit==='tok')return Math.round(n)+' tok';
+  if(unit==='count')return String(Math.round(n));
+  if(unit==='tok/s')return n.toFixed(3)+' tok/s';
+  if(unit==='s')return n.toFixed(3)+' s';
+  if(unit==='ms')return n.toFixed(3)+' ms';
+  return n.toFixed(3)+' '+unit;
+}
+
+function renderTimingPanel(svc){
+  const state=PERF_STATE[svc];
+  const tableEl=document.getElementById(svc+'TimingTable');
+  const metaEl=document.getElementById(svc+'TimingMeta');
+  if(!tableEl||!metaEl||!state)return;
+
+  if(state.runs===0){
+    metaEl.textContent='No runs yet';
+    tableEl.innerHTML='<div class="timing-empty">No timing data yet.</div>';
+    return;
+  }
+
+  metaEl.textContent='Runs: '+state.runs+' | Last: '+(state.lastLabel||'request')+' @ '+state.lastAt;
+  const spec=(TIMING_SPECS[svc]||[]);
+  if(!spec.length){
+    tableEl.innerHTML='<div class="timing-empty">No metrics configured.</div>';
+    return;
+  }
+  const rows=spec.map(m=>{
+    const cur=state.current[m.k];
+    const agg=state.agg[m.k];
+    const avg=(agg&&agg.count>0)?(agg.sum/agg.count):null;
+    return '<tr><td>'+escHtml(m.l)+'</td><td class="metric-val">'+formatMetric(cur,m.u)+'</td><td class="metric-val">'+formatMetric(avg,m.u)+'</td></tr>';
+  }).join('');
+  tableEl.innerHTML='<table><thead><tr><th>Metric</th><th>Current</th><th>Average</th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+
+function recordServiceTiming(svc,metrics,label){
+  const state=PERF_STATE[svc];
+  if(!state)return;
+  const numeric={};
+  Object.entries(metrics||{}).forEach(([k,v])=>{
+    const n=toNum(v);
+    if(n===null)return;
+    numeric[k]=n;
+    if(!state.agg[k])state.agg[k]={sum:0,count:0};
+    state.agg[k].sum+=n;
+    state.agg[k].count+=1;
+  });
+  state.current=numeric;
+  state.runs+=1;
+  state.lastLabel=label||'request';
+  state.lastAt=new Date().toLocaleTimeString();
+  renderTimingPanel(svc);
+}
+
+function extractSseDataEvents(chunkBuffer){
+  chunkBuffer=chunkBuffer.replace(/\r\n/g,'\n');
+  const events=[];
+  let idx;
+  while((idx=chunkBuffer.indexOf('\n\n'))!==-1){
+    const rawEvent=chunkBuffer.slice(0,idx);
+    chunkBuffer=chunkBuffer.slice(idx+2);
+    const dataLines=rawEvent.split(/\r?\n/).filter(line=>line.startsWith('data:')).map(line=>line.slice(5).trimStart());
+    if(!dataLines.length)continue;
+    events.push(dataLines.join('\n'));
+  }
+  return {events,rest:chunkBuffer};
+}
+
+const OPENAI_ENDPOINT_MAP = [
+  {
+    service:'Text Generation',
+    endpoints:[
+      {method:'POST',path:'/v1/chat/completions',note:'Text chat completions (stream + non-stream).',uiRoute:'/api/tg/chat'},
+      {method:'GET',path:'/v1/models',note:'Model discovery (includes text models).',uiRoute:'/api/tg/models'}
+    ]
+  },
+  {
+    service:'Speech-to-Text',
+    endpoints:[
+      {method:'POST',path:'/v1/audio/transcriptions',note:'Audio transcription endpoint.',uiRoute:'/api/stt/transcribe'},
+      {method:'POST',path:'/v1/audio/translations',note:'Translate audio to English endpoint.',uiRoute:'/api/stt/transcribe'},
+      {method:'WS',path:'/v1/realtime',note:'Realtime websocket compatibility endpoint. UI uses upload-only HTTP session flow (create -> append -> finalize). No live microphone flow in UI.',uiRoute:'/ws/stt/realtime'},
+      {method:'POST',path:'/v1/realtime/sessions',note:'Create realtime transcription session.',uiRoute:'/api/stt/realtime/sessions'},
+      {method:'POST',path:'/v1/realtime/sessions/{id}/audio',note:'Append PCM16 audio chunk (server VAD assisted).',uiRoute:'/api/stt/realtime/sessions/{id}/audio'},
+      {method:'POST',path:'/v1/realtime/sessions/{id}/finalize',note:'Finalize and return merged transcript.',uiRoute:'/api/stt/realtime/sessions/{id}/finalize'}
+    ]
+  },
+  {
+    service:'Text-to-Speech',
+    endpoints:[
+      {method:'POST',path:'/v1/audio/speech',note:'OpenAI-compatible text-to-speech endpoint.',uiRoute:'/api/tts/speech'},
+      {method:'GET',path:'/v1/models',note:'Model discovery for tts-1 / tts-1-hd.',uiRoute:'(aggregated via /v1/models)'}
+    ]
+  },
+  {
+    service:'Image Generation',
+    endpoints:[
+      {method:'POST',path:'/v1/images/generations',note:'Generate images from text prompts.',uiRoute:'/api/img/generate'},
+      {method:'POST',path:'/v1/images/edits',note:'Edit images (OpenAI-compatible multipart).',uiRoute:'(available via OpenAI client)'},
+      {method:'POST',path:'/v1/images/variations',note:'Create image variations.',uiRoute:'(available via OpenAI client)'},
+      {method:'GET',path:'/v1/images/files/{image_id}',note:'Fetch generated image file by image id.',uiRoute:'(used after URL responses)'}
+    ]
+  },
+  {
+    service:'Image-to-Text (Vision)',
+    endpoints:[
+      {method:'POST',path:'/v1/responses',note:'Vision + follow-up via OpenAI Responses input[]; image preprocessing happens inside I2T container.',uiRoute:'/v1/responses'},
+      {method:'GET',path:'/v1/models',note:'Model discovery for vision-compatible model ids.',uiRoute:'/api/i2t/models'}
+    ]
+  },
+  {
+    service:'Global Model API',
+    endpoints:[
+      {method:'GET',path:'/v1/models',note:'Unified model list aggregated from TG/STT/I2T/Image.',uiRoute:'(recommended for SDK clients)'},
+      {method:'GET',path:'/v1/models/{model_id}',note:'Resolve specific model metadata.',uiRoute:'(recommended for SDK clients)'}
+    ]
+  }
+];
+
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  if(name==='dashboard')refreshStatus();
+  if(name==='stt'){loadLanguages();checkEpStatus('stt');applySttUiPolicy();}
+  if(name==='textgen'){checkEpStatus('tg');refreshTgModels();}
+  if(name==='tts')checkEpStatus('tts');
+  if(name==='i2t'){checkEpStatus('i2t');}
+  if(name==='imggen')checkEpStatus('img');
+}
+
+function initEndpointBars(){
+  ['tg','stt','tts','i2t','img'].forEach(svc=>{
+    const c=cfg[svc];
+    const u=document.getElementById(svc+'-ep-url');
+    if(u)u.value=c.mode==='device'?c.device:(c.cloud||c.device);
+    const k=document.getElementById(svc+'-ep-key');
+    if(k&&c.key)k.value=c.key;
+    setModeUI(svc,c.mode);
+  });
+}
+
+function ensureTgModelOption(value,label){
+  const sel=document.getElementById('tgModel');
+  if(!sel||!value)return;
+  const existing=[...sel.options].find(o=>o.value===value);
+  if(existing){
+    if(label)existing.textContent=label;
+    return existing;
+  }
+  const option=document.createElement('option');
+  option.value=value;
+  option.textContent=label||value;
+  sel.appendChild(option);
+  return option;
+}
+
+function setTgModelInfo(text){
+  const el=document.getElementById('tgModelInfo');
+  if(el)el.textContent=text;
+}
+
+async function refreshTgModels(){
+  const sel=document.getElementById('tgModelSelect');
+  if(!sel)return;
+
+  if((cfg?.tg?.mode||'device')!=='device'){
+    sel.innerHTML='<option value="">gpt-4o (Cloud mode)</option>';
+    setTgModelInfo('Cloud mode: model list is controlled by provider.');
+    return;
+  }
+
+  try{
+    const headers={...getHeaders('tg')};
+    const resp=await fetch('/api/tg/local-models',{headers});
+    const data=await safeJson(resp);
+    if(!resp.ok)throw new Error(data?.error?.message||'HTTP '+resp.status);
+
+    const models=Array.isArray(data?.data)?data.data:[];
+    tgLocalModels=models;
+    
+    const activeModel=(data?.active_model_id||'unknown');
+    const activeCfg=(data?.active_genie_config_path||'n/a');
+    
+    sel.innerHTML='';
+    if(models.length===0){
+      const opt=document.createElement('option');
+      opt.value='';
+      opt.textContent='No models available';
+      sel.appendChild(opt);
+    }else{
+      models.forEach(m=>{
+        const opt=document.createElement('option');
+        const modelId=String(m.id||m.model||'');
+        const modelDir=String(m.model_dir||'');
+        opt.value=modelId;
+        opt.textContent=modelId;
+        opt.dataset.modelKey=modelId;
+        opt.dataset.configPath=modelDir;
+        sel.appendChild(opt);
+        if(modelId===activeModel)opt.selected=true;
+      });
+    }
+    
+    setTgModelInfo('Active model: '+activeModel+' | Config: '+activeCfg);
+  }catch(e){
+    sel.innerHTML='<option value="">Error loading models</option>';
+    setTgModelInfo('Model list fetch failed: '+e.message);
+  }
+}
+
+async function loadSelectedTgModel(){
+  if(!ensureServiceReady('Text-Generation','tgStatus'))return;
+  if((cfg?.tg?.mode||'device')!=='device'){
+    document.getElementById('tgStatus').textContent='Model load is supported only in On-Device mode.';
+    return;
+  }
+  const sel=document.getElementById('tgModelSelect');
+  if(!sel||!sel.value){
+    document.getElementById('tgStatus').textContent='Select a model first.';
+    return;
+  }
+
+  const opt=sel.options[sel.selectedIndex];
+  const modelName=String(opt?.dataset?.modelKey||sel.value);
+  const configPath=String(opt?.dataset?.configPath||'');
+  
+  // Build payload - backend expects model_dir, not model
+  const payload={};
+  if(configPath){
+    payload.model_dir=configPath;
+  }else{
+    payload.model=modelName;
+  }
+
+  document.getElementById('tgStatus').textContent='Loading model: '+modelName+'...';
+  setGlobalUiBusy(true,'Loading model...');
+  
+  try{
+    const headers={'Content-Type':'application/json'};
+    const resp=await fetch('/api/tg/load-model',{method:'POST',headers,body:JSON.stringify(payload)});
+    const data=await safeJson(resp);
+    if(!resp.ok)throw new Error(data?.error?.message||data?.answer||('HTTP '+resp.status));
+    const modelId=String(data?.active_model_id||modelName);
+    document.getElementById('tgStatus').textContent='Loaded model: '+modelId;
+    await refreshTgModels();
+  }catch(e){
+    document.getElementById('tgStatus').textContent='Model load failed: '+e.message;
+  }finally{
+    setGlobalUiBusy(false);
+  }
+}
+
+function setMode(svc,mode){
+  cfg[svc].mode=mode;
+  const u=document.getElementById(svc+'-ep-url');
+  if(u)u.value=mode==='device'?cfg[svc].device:(cfg[svc].cloud||cfg[svc].device);
+  setModeUI(svc,mode);saveCfg(cfg);checkEpStatus(svc);
+}
+
+function setModeUI(svc,mode){
+  const dBtn=document.getElementById(svc+'-mode-device');
+  const cBtn=document.getElementById(svc+'-mode-cloud');
+  const keyEl=document.getElementById(svc+'-ep-key');
+  const badge=document.getElementById(svc+'-badge');
+  const portMap={tg:'8088',stt:'8081',tts:'8083',i2t:'8080',img:'8090'};
+  if(mode==='device'){
+    if(dBtn)dBtn.className='mode-btn active';
+    if(cBtn)cBtn.className='mode-btn';
+    if(keyEl)keyEl.classList.add('hidden');
+    if(badge){
+      badge.textContent=svc==='img'?'On-Device via Orchestrator 8090':'On-Device port '+portMap[svc];
+      const cls=svc==='tg'?'badge-blue':svc==='stt'?'badge-purple':svc==='i2t'?'badge-teal':'badge-green';
+      badge.className='badge '+cls;
+    }
+    if(svc==='tg'){const r=document.getElementById('tg-reset-btn');if(r)r.classList.remove('hidden');}
+  }else{
+    if(dBtn)dBtn.className='mode-btn';
+    if(cBtn)cBtn.className='mode-btn cloud-active';
+    if(keyEl)keyEl.classList.remove('hidden');
+    if(badge){badge.textContent='Cloud';badge.className='badge badge-orange';}
+    if(svc==='tg'){const r=document.getElementById('tg-reset-btn');if(r)r.classList.add('hidden');}
+  if(svc==='i2t'){
+    const dBtn=document.getElementById('i2t-mode-device');
+    const cBtn=document.getElementById('i2t-mode-cloud');
+    const keyEl=document.getElementById('i2t-ep-key');
+    const badge=document.getElementById('i2t-badge');
+    if(mode==='device'){
+      if(dBtn)dBtn.className='mode-btn active';
+      if(cBtn)cBtn.className='mode-btn';
+      if(keyEl)keyEl.classList.add('hidden');
+      if(badge){badge.textContent='On-Device port 8080';badge.className='badge badge-teal';}
+    }else{
+      if(dBtn)dBtn.className='mode-btn';
+      if(cBtn)cBtn.className='mode-btn cloud-active';
+      if(keyEl)keyEl.classList.remove('hidden');
+      if(badge){badge.textContent='Cloud (OpenAI)';badge.className='badge badge-orange';}
+    }
+  }
+  }
+    if(svc==='img'){
+    document.getElementById('img-device-params').classList.toggle('hidden',mode!=='device');
+    document.getElementById('img-cloud-params').classList.toggle('hidden',mode!=='cloud');
+  }
+  if(svc==='i2t'){
+    if(mode==='device'){
+      document.getElementById('i2tPrompt').disabled=false;
+      document.getElementById('i2tMaxTokens').disabled=false;
+    }
+  }
+  if(svc==='tg'){
+    const loadBtn=document.getElementById('tg-load-btn');
+    if(loadBtn)loadBtn.classList.toggle('hidden',mode!=='device');
+    if(mode==='device'){
+      refreshTgModels();
+    }else{
+      ensureTgModelOption('gpt-4o','gpt-4o');
+      const m=document.getElementById('tgModel');
+      if(m)m.value='gpt-4o';
+      setTgModelInfo('Cloud mode: model list is controlled by provider.');
+    }
+  }
+}
+
+function applyEndpoint(svc){
+  const u=document.getElementById(svc+'-ep-url');
+  const k=document.getElementById(svc+'-ep-key');
+  if(!u)return;
+  const url=u.value.trim(),key=k?k.value.trim():'';
+  if(!cfg[svc].cloud || !document.getElementById(svc+'-mode-cloud') || cfg[svc].mode==='device'){
+    cfg[svc].device=url;
+  }else{
+    cfg[svc].cloud=url;
+  }
+  cfg[svc].key=key;saveCfg(cfg);checkEpStatus(svc);
+  if(svc==='tg')refreshTgModels();
+}
+
+async function checkEpStatus(svc){
+  const el=document.getElementById(svc+'-ep-status');
+  if(!el)return;
+  el.textContent='checking...';el.className='ep-status checking';
+  try{
+    const r=await fetch('/api/status');
+    const data=await r.json();
+    updateServiceStatusCache(data.services);
+    const nm={tg:'Text-Generation',stt:'Speech-To-Text',tts:'Text-To-Speech',i2t:'Image-To-Text',img:'Image-Generation'};
+    const sd=data.services.find(s=>s.name===nm[svc]);
+    if(sd){
+      const readyStatus=String(sd.ready_status||'unsupported');
+      const displayStatus=(sd.status==='ok'&&readyStatus==='not_ready')?'not_ready':sd.status;
+      el.textContent=displayStatus==='ok'?'online':(displayStatus==='not_ready'?'not ready':'offline');
+      el.className='ep-status '+displayStatus;
+      const dm={tg:'dot-tg',stt:'dot-stt',tts:'dot-tts',i2t:'dot-i2t',img:'dot-img'};
+      const d=document.getElementById(dm[svc]);
+      if(d)d.className='dot '+displayStatus;
+    }
+  }catch(e){el.textContent='error';el.className='ep-status error';}
+}
+
+function getHeaders(svc){
+  const h={};
+  const c=cfg[svc];
+  if(!c)return h;
+  if(c.key)h['X-API-Key']=c.key;
+  if(svc==='tg'){
+    h['X-TG-Mode']=c.mode||'device';
+    h['X-TG-Base-Url']=(c.mode==='device'?c.device:(c.cloud||c.device||'')).trim();
+  }
+  return h;
+}
+
+async function refreshStatus(){
+  const grid=document.getElementById('dashboardGrid');
+  grid.innerHTML='<div style="color:var(--text3);padding:1rem">Checking services...</div>';
+  try{
+    const r=await fetch('/api/status');
+    const data=await r.json();
+    updateServiceStatusCache(data.services);
+    renderDashboard(data.services);
+    updateHeaderDots(data.services);
+  }catch(e){
+    grid.innerHTML='<div class="alert alert-error">Orchestrator unreachable: '+e.message+'</div>';
+  }
+}
+
+function renderDashboard(services){
+  const icons={'Text-Generation':'&#128172;','Speech-To-Text':'&#127897;&#65039;','Text-To-Speech':'&#128266;','Image-To-Text':'&#128444;&#65039;','Image-Generation':'&#127912;'};
+  document.getElementById('dashboardGrid').innerHTML=services.map(s=>{
+    const readyStatus=String(s.ready_status||'unsupported');
+    const displayStatus=(s.status==='ok'&&readyStatus==='not_ready')?'not_ready':s.status;
+    const detail=typeof s.detail==='object'?JSON.stringify(s.detail,null,2):String(s.detail);
+    const modeLabel='ready='+readyStatus;
+    return '<div class="service-card '+displayStatus+'"><div class="service-header"><div><div class="service-name">'+s.name+'</div><div class="service-url">'+s.url+'</div><div style="font-size:.75rem;color:var(--text3);margin-top:.2rem">On-Device | '+escHtml(modeLabel)+'</div></div><div style="text-align:right"><div class="service-icon">'+(icons[s.name]||'&#9881;&#65039;')+'</div><div class="status-pill '+displayStatus+'">'+displayStatus.toUpperCase()+'</div></div></div><div class="service-detail">'+escHtml(detail)+'</div></div>';
+  }).join('');
+}
+
+function updateHeaderDots(services){
+  const map={'Text-Generation':'dot-tg','Speech-To-Text':'dot-stt','Text-To-Speech':'dot-tts','Image-To-Text':'dot-i2t','Image-Generation':'dot-img'};
+  services.forEach(s=>{
+    const readyStatus=String(s.ready_status||'unsupported');
+    const displayStatus=(s.status==='ok'&&readyStatus==='not_ready')?'not_ready':s.status;
+    const d=document.getElementById(map[s.name]);
+    if(d)d.className='dot '+displayStatus;
+  });
+}
+
+function renderOpenAIEndpointMap(){
+  const grid=document.getElementById('openaiDocGrid');
+  if(!grid)return;
+  const base=window.location.origin||'http://localhost:8090';
+  const endpointMap=OPENAI_ENDPOINT_MAP.map(section=>({
+    ...section,
+    endpoints:[...(section.endpoints||[])],
+  }));
+  if(!STT_UI_FLAGS.enableRealtimeAdvancedUpload){
+    endpointMap.forEach(section=>{
+      if(section.service!=='Speech-to-Text')return;
+      section.endpoints=section.endpoints.filter(ep=>!String(ep.path||'').startsWith('/v1/realtime'));
+    });
+  }
+  grid.innerHTML=endpointMap.map(section=>{
+    const rows=section.endpoints.map(ep=>{
+      const m=String(ep.method||'GET').toLowerCase();
+      return '<div class="endpoint-doc-item">'+
+        '<div class="ep-top">'+
+          '<span class="ep-method '+m+'">'+escHtml(ep.method||'GET')+'</span>'+
+          '<span class="ep-path">'+escHtml(base+ep.path)+'</span>'+
+        '</div>'+
+        '<div class="ep-note">'+escHtml(ep.note||'')+'</div>'+
+        '<div class="ep-ui">UI route: '+escHtml(ep.uiRoute||'-')+'</div>'+
+      '</div>';
+    }).join('');
+    return '<div class="endpoint-doc-service">'+
+      '<div class="endpoint-doc-name">'+escHtml(section.service)+'</div>'+
+      rows+
+    '</div>';
+  }).join('');
+  document.getElementById('openaiDocBase').textContent='Base URL: '+base;
+}
+
+function chatKeydown(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}}
+
+function appendMsg(role,content,winId){
+  const win=document.getElementById(winId||'chatWindow');
+  const div=document.createElement('div');
+  div.className='msg '+role;div.textContent=content;
+  win.appendChild(div);win.scrollTop=win.scrollHeight;
+  return div;
+}
+
+function clearChat(){chatHistory.length=0;document.getElementById('chatWindow').innerHTML='<div class="msg system-msg">Chat cleared</div>';}
+
+async function resetModel(){
+  if(!ensureServiceReady('Text-Generation','tgStatus'))return;
+  document.getElementById('tgStatus').textContent='Resetting...';
+  try{const r=await fetch('/api/tg/reset',{method:'POST'});const d=await r.json();clearChat();document.getElementById('tgStatus').textContent=d.answer||'Reset OK';}
+  catch(e){document.getElementById('tgStatus').textContent='Error: '+e.message;}
+}
+
+async function sendChat(){
+  if(!ensureServiceReady('Text-Generation','tgStatus'))return;
+  const input=document.getElementById('chatInput');
+  const text=input.value.trim();if(!text)return;
+  const sendBtn=document.getElementById('sendBtn');
+  const sendBtnText=document.getElementById('sendBtnText');
+  const statusEl=document.getElementById('tgStatus');
+  statusEl.textContent='';
+  sendBtn.disabled=true;sendBtnText.innerHTML='<span class="spinner"></span>';input.value='';
+  setGlobalUiBusy(true,'Request in progress...');
+  appendMsg('user',text,'chatWindow');chatHistory.push({role:'user',content:text});
+    const sys=document.getElementById('tgSystem').value.trim();
+  const maxTok=parseInt(document.getElementById('tgMaxTokens').value)||256;
+  const temp=parseFloat(document.getElementById('tgTemp').value)||0.7;
+  const stream=document.getElementById('tgStream').checked;
+  const mode=cfg?.tg?.mode||'device';
+  const model=mode==='cloud'?'gpt-4o':'genie';  // Use gpt-4o in cloud mode, genie for on-device
+  const messages=[];if(sys)messages.push({role:'system',content:sys});messages.push(...chatHistory);
+  const payload={model,messages,max_tokens:maxTok,temperature:temp,stream};
+  const thinkDiv=appendMsg('thinking','...','chatWindow');
+  const tReqStart=performance.now();
+  try{
+    const headers={'Content-Type':'application/json',...getHeaders('tg')};
+    if(stream){
+      const resp=await fetch('/api/tg/chat',{method:'POST',headers,body:JSON.stringify(payload)});
+      if(!resp.ok){const err=await safeJson(resp);throw new Error(err?.error?.message||'HTTP '+resp.status);}
+      const orchParseMs=toNum(resp.headers.get('x-parse-ms'));
+      const orchUpstreamSetupMs=toNum(resp.headers.get('x-upstream-setup-ms'));
+      const orchRequestSetupMs=toNum(resp.headers.get('x-request-setup-ms'));
+      const reader=resp.body.getReader();const decoder=new TextDecoder();let full='';let sseBuf='';
+      let firstTokenAt=null,lastTokenAt=null,interTokenSum=0,interTokenCount=0;
+      let timingObj=null,usageTokens=null,doneSeen=false;
+      thinkDiv.className='msg assistant';thinkDiv.textContent='';
+      while(!doneSeen){
+        const{done,value}=await reader.read();
+        if(done){sseBuf+=decoder.decode();}else{sseBuf+=decoder.decode(value,{stream:true});}
+        const parsed=extractSseDataEvents(sseBuf);sseBuf=parsed.rest;
+        for(const d of parsed.events){
+          if(d==='[DONE]'){doneSeen=true;break;}
+          let obj=null;
+          try{obj=JSON.parse(d);}catch(_){continue;}
+          if(obj&&obj.type==='x_timing'&&obj.timing){timingObj=obj.timing;continue;}
+          if(obj&&obj.x_timing&&typeof obj.x_timing==='object')timingObj=obj.x_timing;
+          if(obj&&obj.usage&&obj.usage.completion_tokens!==undefined)usageTokens=toNum(obj.usage.completion_tokens);
+          const delta=obj?.choices?.[0]?.delta?.content||'';
+          if(!delta)continue;
+          const now=performance.now();
+          if(firstTokenAt===null)firstTokenAt=now;
+          if(lastTokenAt!==null){interTokenSum+=(now-lastTokenAt);interTokenCount+=1;}
+          lastTokenAt=now;
+          full+=delta;
+          thinkDiv.textContent=full;
+          document.getElementById('chatWindow').scrollTop=9999;
+        }
+        if(done)break;
+      }
+      chatHistory.push({role:'assistant',content:full});
+      const communicationTotalMs=performance.now()-tReqStart;
+      const prefillMs=toNum(timingObj?.prefill_time_ms??timingObj?.time_to_first_token_ms) ?? (firstTokenAt!==null?firstTokenAt-tReqStart:null);
+      const outputTokens=usageTokens ?? toNum(timingObj?.tokens) ?? approxTokenCount(full);
+      let interTokenMs=toNum(timingObj?.inter_token_latency_ms);
+      if(interTokenMs===null&&interTokenCount>0)interTokenMs=interTokenSum/interTokenCount;
+      let tokenRate=toNum(timingObj?.tokens_per_second);
+      if(tokenRate===null&&firstTokenAt!==null&&lastTokenAt!==null&&lastTokenAt>firstTokenAt&&outputTokens>0){
+        tokenRate=(outputTokens*1000.0)/(lastTokenAt-firstTokenAt);
+      }
+      const serverTotalMs=toNum(timingObj?.total_time_ms);
+      const overheadMs=serverTotalMs!==null?Math.max(0,communicationTotalMs-serverTotalMs):null;
+      recordServiceTiming('tg',{
+        communication_total_ms:communicationTotalMs,
+        prefill_ms:prefillMs,
+        inter_token_latency_ms:interTokenMs,
+        token_rate_tps:tokenRate,
+        output_tokens:outputTokens,
+        server_total_ms:serverTotalMs,
+        orchestrator_parse_ms:orchParseMs,
+        orchestrator_upstream_setup_ms:orchUpstreamSetupMs,
+        orchestrator_request_setup_ms:orchRequestSetupMs,
+        communication_overhead_ms:overheadMs,
+      },'stream');
+      statusEl.textContent='Done (stream) in '+communicationTotalMs.toFixed(1)+' ms';
+    }else{
+      const resp=await fetch('/api/tg/chat',{method:'POST',headers,body:JSON.stringify(payload)});
+      const data=await safeJson(resp);if(!resp.ok)throw new Error(data?.error?.message||'HTTP '+resp.status);
+      const content=data.choices?.[0]?.message?.content||'';
+      thinkDiv.className='msg assistant';thinkDiv.textContent=content;chatHistory.push({role:'assistant',content});
+      const communicationTotalMs=performance.now()-tReqStart;
+      const upstreamTiming=(data&&typeof data.x_timing==='object')?data.x_timing:{};
+      const orchTiming=(data&&typeof data.x_orchestrator_timing==='object')?data.x_orchestrator_timing:{};
+      const outputTokens=toNum(data?.usage?.completion_tokens) ?? approxTokenCount(content);
+      const serverTotalMs=toNum(upstreamTiming.total_time_ms);
+      const overheadMs=serverTotalMs!==null?Math.max(0,communicationTotalMs-serverTotalMs):null;
+      recordServiceTiming('tg',{
+        communication_total_ms:communicationTotalMs,
+        prefill_ms:toNum(upstreamTiming.prefill_time_ms??upstreamTiming.time_to_first_token_ms),
+        inter_token_latency_ms:toNum(upstreamTiming.inter_token_latency_ms),
+        token_rate_tps:toNum(upstreamTiming.tokens_per_second),
+        output_tokens:outputTokens,
+        server_total_ms:serverTotalMs,
+        orchestrator_parse_ms:toNum(orchTiming.parse_ms),
+        orchestrator_upstream_setup_ms:toNum(orchTiming.upstream_ms),
+        orchestrator_request_setup_ms:toNum(orchTiming.request_total_ms),
+        communication_overhead_ms:overheadMs,
+      },'non-stream');
+      statusEl.textContent='Done (non-stream) in '+communicationTotalMs.toFixed(1)+' ms';
+    }
+  }catch(e){
+    thinkDiv.className='msg system-msg';
+    thinkDiv.textContent='Error: '+e.message;
+    statusEl.textContent='Error: '+e.message;
+  }finally{
+    setGlobalUiBusy(false);
+    sendBtn.disabled=false;
+    sendBtnText.textContent='Send';
+    document.getElementById('chatWindow').scrollTop=9999;
+  }
+}
+
+async function estimateWavDuration(blob){
+  try{
+    const buf=await blob.arrayBuffer();
+    if(buf.byteLength<44)return null;
+    const view=new DataView(buf);
+    const channels=view.getUint16(22,true);
+    const sampleRate=view.getUint32(24,true);
+    const bitsPerSample=view.getUint16(34,true);
+    const dataBytes=view.getUint32(40,true);
+    const bytesPerSample=Math.max(1,(channels*bitsPerSample)/8);
+    return dataBytes/(sampleRate*bytesPerSample);
+  }catch(_){return null;}
+}
+
+async function postTtsSpeech(payload){
+  const endpoints=['/api/tts/speech','/v1/audio/speech'];
+  const headers={'Content-Type':'application/json',...getHeaders('tts')};
+  const errors=[];
+  for(const endpoint of endpoints){
+    const response=await fetch(endpoint,{method:'POST',headers,body:JSON.stringify(payload)});
+    if(response.ok){
+      return {response,endpoint};
+    }
+    const body=await safeJson(response);
+    const message=body?.error?.message||('HTTP '+response.status);
+    errors.push(endpoint+': '+message);
+    if(response.status!==404){
+      break;
+    }
+  }
+  throw new Error(errors.join(' | ')||'HTTP 404');
+}
+
+async function speakTts(){
+  if(!ensureServiceReady('Text-To-Speech','ttsStatus'))return;
+  const input=document.getElementById('ttsText');
+  const text=input.value.trim();
+  if(!text){document.getElementById('ttsStatus').textContent='Enter text first';return;}
+  const btn=document.getElementById('ttsSpeakBtn');
+  const btnText=document.getElementById('ttsSpeakBtnText');
+  const voice=TTS_LOCKED_VOICE;
+  const format=document.getElementById('ttsFormat').value;
+  const speed=TTS_LOCKED_SPEED;
+  const model=document.getElementById('ttsModel').value||'tts-1';
+  const statusEl=document.getElementById('ttsStatus');
+  const metaEl=document.getElementById('ttsMeta');
+  const player=document.getElementById('ttsPlayer');
+  statusEl.textContent='Synthesizing...';
+  btn.disabled=true;btnText.innerHTML='<span class="spinner"></span>';
+  const tReqStart=performance.now();
+  try{
+    const payload={model,input:text,voice,response_format:format,speed};
+    const {response:r,endpoint}=await postTtsSpeech(payload);
+    const blob=await r.blob();
+    if(lastTtsAudioUrl)URL.revokeObjectURL(lastTtsAudioUrl);
+    lastTtsAudioBlob=blob;
+    lastTtsAudioUrl=URL.createObjectURL(blob);
+    player.src=lastTtsAudioUrl;
+    player.classList.remove('hidden');
+    await player.play().catch(()=>{});
+    const headerTiming={
+      process_time_ms:firstPositive(
+        toNum(r.headers.get('x-process-time-ms')),
+        toNum(r.headers.get('x-upstream-process-time-ms'))
+      ),
+      backend_total_ms:toNum(r.headers.get('x-upstream-request-total-ms')),
+      orchestrator_total_ms:toNum(r.headers.get('x-orchestrator-time-ms')),
+    };
+    const communicationTotalMs=performance.now()-tReqStart;
+    const requestTotalMs=firstPositive(
+      headerTiming.backend_total_ms,
+      headerTiming.process_time_ms,
+      headerTiming.orchestrator_total_ms,
+      communicationTotalMs
+    );
+    const overheadMs=requestTotalMs!==null?Math.max(0,communicationTotalMs-requestTotalMs):null;
+    const audioBytes=blob.size;
+    const audioDurationS=await estimateWavDuration(blob);
+    metaEl.textContent='Endpoint: '+endpoint+' | Model: '+model+' | Voice: '+voice+' | Format: '+format+' | Bytes: '+audioBytes;
+    statusEl.textContent='Played in '+communicationTotalMs.toFixed(1)+' ms';
+    recordServiceTiming('tts',{
+      communication_total_ms:communicationTotalMs,
+      request_total_ms:requestTotalMs,
+      process_time_ms:headerTiming.process_time_ms,
+      orchestrator_total_ms:headerTiming.orchestrator_total_ms,
+      communication_overhead_ms:overheadMs,
+      audio_bytes:audioBytes,
+      input_chars:text.length,
+      audio_duration_s:audioDurationS,
+    },'tts');
+  }catch(e){
+    statusEl.textContent='Error: '+e.message;
+    metaEl.textContent='';
+  }
+  btn.disabled=false;btnText.textContent='Speak';
+}
+
+function clearTts(){
+  document.getElementById('ttsText').value='';
+  document.getElementById('ttsStatus').textContent='';
+  document.getElementById('ttsMeta').textContent='';
+  const player=document.getElementById('ttsPlayer');
+  if(player){player.pause();player.removeAttribute('src');player.load();player.classList.add('hidden');}
+  if(lastTtsAudioUrl){URL.revokeObjectURL(lastTtsAudioUrl);lastTtsAudioUrl=null;}
+  lastTtsAudioBlob=null;
+}
+
+async function loadLanguages(){
+  try{const r=await fetch('/api/stt/languages');if(!r.ok)return;const d=await r.json();const sel=document.getElementById('sttLang');while(sel.options.length>1)sel.remove(1);(d.languages||[]).forEach(l=>{const o=document.createElement('option');o.value=l;o.textContent=l;sel.appendChild(o);});}catch(_){}
+}
+
+function syncSttActionButtons(){
+  const transcribeBtn=document.getElementById('transcribeBtn');
+  const realtimeBtn=document.getElementById('sttRtProcessBtn');
+  const clearBtn=document.getElementById('sttClearBtn');
+  if(!transcribeBtn)return;
+  const hasFile=!!currentAudioFile;
+  transcribeBtn.disabled=!hasFile||sttUiBusy;
+  if(realtimeBtn){
+    realtimeBtn.disabled=!STT_UI_FLAGS.enableRealtimeAdvancedUpload||!hasFile||sttUiBusy;
+  }
+  if(clearBtn){
+    clearBtn.disabled=sttUiBusy;
+  }
+}
+
+function onSttEndpointModeChange(){
+  syncSttActionButtons();
+}
+
+function applySttUiPolicy(){
+  const realtimePanel=document.getElementById('sttRealtimePanel');
+  if(realtimePanel){
+    realtimePanel.classList.toggle('hidden',!STT_UI_FLAGS.enableRealtimeAdvancedUpload);
+    if(!STT_UI_FLAGS.enableRealtimeAdvancedUpload){
+      realtimePanel.open=false;
+    }
+  }
+  updateMicHelpText();
+  if(STT_UI_FLAGS.enableRealtimeAdvancedUpload){
+    setRealtimeTransportLabel('Flow: create session -> upload PCM chunks -> finalize');
+  }else{
+    setRealtimeTransportLabel('');
+  }
+  syncSttActionButtons();
+}
+
+function dzDragOver(e){e.preventDefault();document.getElementById('dropZone').classList.add('drag-over');}
+function dzDragLeave(e){document.getElementById('dropZone').classList.remove('drag-over');}
+function dzDrop(e){e.preventDefault();document.getElementById('dropZone').classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f)setAudioFile(f);}
+function audioSelected(e){const f=e.target.files[0];if(f)setAudioFile(f);}
+
+function getMicSupportState(){
+  const secure=!!window.isSecureContext;
+  const hasMediaDevices=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);
+  const hasMediaRecorder=typeof window.MediaRecorder!=='undefined';
+  const canRecord=secure&&hasMediaDevices&&hasMediaRecorder;
+  return{secure,hasMediaDevices,hasMediaRecorder,canRecord};
+}
+
+function updateMicHelpText(){
+  const helpEl=document.getElementById('sttMicHelp');
+  if(!helpEl)return;
+  if(!STT_UI_FLAGS.enableMicCapture){
+    helpEl.textContent='Pre-recorded audio upload only. Live microphone capture is disabled.';
+    return;
+  }
+  const state=getMicSupportState();
+  if(state.canRecord){
+    helpEl.textContent='Mic capture ready. For live realtime, keep this page open and grant microphone permission.';
+    return;
+  }
+  const reasons=[];
+  if(!state.secure)reasons.push('page is not in a secure context (HTTPS or localhost)');
+  if(!state.hasMediaDevices)reasons.push('getUserMedia API is unavailable');
+  if(!state.hasMediaRecorder)reasons.push('MediaRecorder API is unavailable');
+  helpEl.textContent='Mic limitations detected: '+reasons.join(', ')+'. Use "Capture Audio (Fallback)" or upload a file.';
+}
+
+function friendlyMicError(err){
+  const name=(err&&err.name)?String(err.name):'Error';
+  if(name==='NotAllowedError')return 'Microphone permission denied. Allow mic access in browser settings.';
+  if(name==='NotFoundError')return 'No microphone input device found.';
+  if(name==='NotReadableError')return 'Microphone is busy or blocked by another app.';
+  if(name==='OverconstrainedError')return 'Requested microphone constraints are not supported on this device.';
+  if(name==='SecurityError')return 'Microphone requires HTTPS or localhost secure context.';
+  if(name==='AbortError')return 'Microphone initialization was aborted by the browser.';
+  return(err&&err.message)?String(err.message):'Unknown microphone error.';
+}
+
+function setRealtimeTransportLabel(text){
+  const el=document.getElementById('sttRtTransport');
+  if(!el)return;
+  el.textContent=text||'';
+}
+
+function captureAudioFallback(){
+  if(!STT_UI_FLAGS.enableMicCapture){
+    setSttMicStatus('Mic capture disabled. Upload a pre-recorded audio file.',true);
+    return;
+  }
+  const input=document.getElementById('audioCaptureInput');
+  if(!input){
+    setSttMicStatus('Capture fallback is unavailable on this page.',true);
+    return;
+  }
+  input.click();
+}
+
+function setSttMicStatus(msg,isError=false){
+  const el=document.getElementById('sttMicStatus');
+  if(!el)return;
+  el.textContent=msg||'';
+  el.style.color=isError?'var(--red)':'var(--text3)';
+}
+
+function stopMicTimers(){
+  if(micAutoStopTimer){clearTimeout(micAutoStopTimer);micAutoStopTimer=null;}
+  if(micTickTimer){clearInterval(micTickTimer);micTickTimer=null;}
+}
+
+function updateMicButtons(isRecording){
+  const startBtn=document.getElementById('sttMicStartBtn');
+  const stopBtn=document.getElementById('sttMicStopBtn');
+  if(startBtn)startBtn.disabled=!!isRecording;
+  if(stopBtn)stopBtn.disabled=!isRecording;
+}
+
+async function startMicRecording(){
+  if(!STT_UI_FLAGS.enableMicCapture){
+    setSttMicStatus('Mic recording is disabled. Upload a pre-recorded audio file.',true);
+    return;
+  }
+  if(micMediaRecorder&&micMediaRecorder.state==='recording')return;
+  const support=getMicSupportState();
+  if(!support.secure){
+    setSttMicStatus('Mic capture needs HTTPS or localhost. Use Capture Audio fallback.',true);
+    return;
+  }
+  if(!support.hasMediaDevices){
+    setSttMicStatus('getUserMedia API unavailable. Use Capture Audio fallback.',true);
+    return;
+  }
+  if(!support.hasMediaRecorder){
+    setSttMicStatus('MediaRecorder unavailable. Use Capture Audio fallback.',true);
+    return;
+  }
+  try{
+    micMediaStream=await navigator.mediaDevices.getUserMedia({audio:true});
+    const mimeCandidates=['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4'];
+    let mimeType='';
+    for(const m of mimeCandidates){
+      if(window.MediaRecorder&&MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m)){mimeType=m;break;}
+    }
+    if(!window.MediaRecorder){
+      throw new Error('MediaRecorder is not available');
+    }
+    micChunks=[];
+    micMediaRecorder=mimeType?new MediaRecorder(micMediaStream,{mimeType}):new MediaRecorder(micMediaStream);
+    micMediaRecorder.ondataavailable=(ev)=>{if(ev.data&&ev.data.size>0)micChunks.push(ev.data);};
+    micMediaRecorder.onstop=()=>{
+      stopMicTimers();
+      updateMicButtons(false);
+      const blob=new Blob(micChunks,{type:micMediaRecorder?.mimeType||'audio/webm'});
+      micChunks=[];
+      if(blob.size>0){
+        const ext=(blob.type.includes('ogg')?'ogg':blob.type.includes('mp4')?'m4a':'webm');
+        const file=new File([blob],'mic_recording_'+Date.now()+'.'+ext,{type:blob.type||'audio/webm'});
+        setAudioFile(file);
+        setSttMicStatus('Recording ready: '+(blob.size/1024).toFixed(1)+' KB');
+      }else{
+        setSttMicStatus('No audio captured.',true);
+      }
+      if(micMediaStream){
+        micMediaStream.getTracks().forEach(t=>t.stop());
+        micMediaStream=null;
+      }
+    };
+    micMediaRecorder.start(250);
+    micStartTs=Date.now();
+    updateMicButtons(true);
+    setSttMicStatus('Recording... 0.0s / 30.0s');
+    micTickTimer=setInterval(()=>{
+      const elapsed=(Date.now()-micStartTs)/1000;
+      setSttMicStatus('Recording... '+elapsed.toFixed(1)+'s / 30.0s');
+    },200);
+    micAutoStopTimer=setTimeout(()=>{stopMicRecording();},30000);
+  }catch(e){
+    if(micMediaStream){micMediaStream.getTracks().forEach(t=>t.stop());micMediaStream=null;}
+    updateMicButtons(false);
+    stopMicTimers();
+    setSttMicStatus('Mic error: '+friendlyMicError(e),true);
+  }
+}
+
+function stopMicRecording(){
+  if(!STT_UI_FLAGS.enableMicCapture){
+    return;
+  }
+  if(micMediaRecorder&&micMediaRecorder.state==='recording'){
+    micMediaRecorder.stop();
+  }else{
+    stopMicTimers();
+    updateMicButtons(false);
+  }
+}
+
+function downsampleFloat32(buffer,inputRate,targetRate){
+  if(targetRate===inputRate)return buffer;
+  if(targetRate>inputRate)return buffer;
+  const ratio=inputRate/targetRate;
+  const newLen=Math.round(buffer.length/ratio);
+  const out=new Float32Array(newLen);
+  let offset=0;
+  for(let i=0;i<newLen;i++){
+    const next=Math.round((i+1)*ratio);
+    let sum=0,count=0;
+    for(let j=offset;j<next&&j<buffer.length;j++){sum+=buffer[j];count++;}
+    out[i]=count>0?sum/count:0;
+    offset=next;
+  }
+  return out;
+}
+
+function float32ToPcm16Bytes(floatSamples){
+  const out=new Uint8Array(floatSamples.length*2);
+  const view=new DataView(out.buffer);
+  for(let i=0;i<floatSamples.length;i++){
+    let s=Math.max(-1,Math.min(1,floatSamples[i]));
+    s=s<0?s*32768:s*32767;
+    view.setInt16(i*2,Math.round(s),true);
+  }
+  return out;
+}
+
+function mergeUint8Chunks(chunks){
+  const total=chunks.reduce((sum,c)=>sum+c.length,0);
+  const out=new Uint8Array(total);
+  let offset=0;
+  chunks.forEach(c=>{out.set(c,offset);offset+=c.length;});
+  return out;
+}
+
+function uint8ToBase64(bytes){
+  if(!bytes||!bytes.length)return'';
+  let binary='';
+  const chunkSize=0x8000;
+  for(let i=0;i<bytes.length;i+=chunkSize){
+    const sub=bytes.subarray(i,Math.min(i+chunkSize,bytes.length));
+    binary+=String.fromCharCode.apply(null,sub);
+  }
+  return btoa(binary);
+}
+
+function buildRealtimeWsUrl(path){
+  const proto=window.location.protocol==='https:'?'wss':'ws';
+  return proto+'://'+window.location.host+path;
+}
+
+function setRealtimeStatus(msg,isError=false){
+  const el=document.getElementById('sttRtStatus');
+  if(!el)return;
+  el.textContent=msg||'';
+  el.style.color=isError?'var(--red)':'var(--text3)';
+}
+
+function setRealtimeText(text){
+  const el=document.getElementById('sttRealtimeText');
+  if(!el)return;
+  el.textContent=text&&String(text).trim()?String(text):'(Realtime transcript progress will appear here)';
+}
+
+function updateRealtimeButtons(live){
+  const processBtn=document.getElementById('sttRtProcessBtn');
+  if(processBtn){
+    processBtn.disabled=!STT_UI_FLAGS.enableRealtimeAdvancedUpload||!currentAudioFile||sttUiBusy||!!live;
+  }
+  const startBtn=document.getElementById('sttRtStartBtn');
+  const stopBtn=document.getElementById('sttRtStopBtn');
+  const finalizeBtn=document.getElementById('sttRtFinalizeBtn');
+  if(startBtn)startBtn.disabled=!!live;
+  if(stopBtn)stopBtn.disabled=!live;
+  if(finalizeBtn)finalizeBtn.disabled=!realtimeSessionId;
+}
+
+async function decodeAudioFileToPcmBytes(file,targetRateHz=16000){
+  const AudioCtx=window.AudioContext||window.webkitAudioContext;
+  if(!AudioCtx)throw new Error('Web Audio API is unavailable in this browser.');
+  const audioCtx=new AudioCtx();
+  try{
+    const sourceBuffer=await file.arrayBuffer();
+    const decoded=await audioCtx.decodeAudioData(sourceBuffer.slice(0));
+    const frameCount=decoded.length||0;
+    if(frameCount<=0)throw new Error('Selected audio file decoded to an empty buffer.');
+    const channelCount=Math.max(1,decoded.numberOfChannels||1);
+    const mono=new Float32Array(frameCount);
+    for(let channelIndex=0;channelIndex<channelCount;channelIndex++){
+      const channelData=decoded.getChannelData(channelIndex);
+      for(let i=0;i<frameCount;i++){
+        mono[i]+=channelData[i]/channelCount;
+      }
+    }
+    const effectiveRateHz=decoded.sampleRate<targetRateHz?Math.round(decoded.sampleRate):targetRateHz;
+    const normalized=downsampleFloat32(mono,decoded.sampleRate,effectiveRateHz);
+    return{
+      pcmBytes:float32ToPcm16Bytes(normalized),
+      sampleRateHz:effectiveRateHz,
+      durationSec:toNum(decoded.duration),
+    };
+  }finally{
+    try{await audioCtx.close();}catch(_){}
+  }
+}
+
+function splitUint8Chunks(bytes,chunkSize){
+  const chunks=[];
+  if(!bytes||!bytes.length||chunkSize<=0)return chunks;
+  for(let offset=0;offset<bytes.length;offset+=chunkSize){
+    chunks.push(bytes.subarray(offset,Math.min(offset+chunkSize,bytes.length)));
+  }
+  return chunks;
+}
+
+async function createRealtimeUploadSession(payload){
+  const response=await fetch('/api/stt/realtime/sessions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload),
+  });
+  const data=await safeJson(response);
+  if(!response.ok)throw new Error(data?.error?.message||('HTTP '+response.status));
+  if(!data?.id)throw new Error('Realtime session id missing in create response.');
+  return data;
+}
+
+async function appendRealtimeUploadChunk(sessionId,chunk,sampleRateHz){
+  const query=new URLSearchParams();
+  query.set('sample_rate_hz',String(sampleRateHz));
+  query.set('commit','0');
+  const response=await fetch(
+    '/api/stt/realtime/sessions/'+encodeURIComponent(sessionId)+'/audio?'+query.toString(),
+    {
+      method:'POST',
+      headers:{'Content-Type':'application/octet-stream'},
+      body:chunk,
+    }
+  );
+  const data=await safeJson(response);
+  if(!response.ok)throw new Error(data?.error?.message||('HTTP '+response.status));
+  return data;
+}
+
+async function finalizeRealtimeUploadSession(sessionId){
+  const response=await fetch('/api/stt/realtime/sessions/'+encodeURIComponent(sessionId)+'/finalize',{method:'POST'});
+  const data=await safeJson(response);
+  if(!response.ok)throw new Error(data?.error?.message||('HTTP '+response.status));
+  return data;
+}
+
+async function deleteRealtimeUploadSession(sessionId){
+  if(!sessionId)return;
+  try{
+    await fetch('/api/stt/realtime/sessions/'+encodeURIComponent(sessionId),{method:'DELETE'});
+  }catch(_){}
+}
+
+function handleRealtimeWsEvent(data){
+  const evt=String(data?.type||'').trim().toLowerCase();
+  if(!evt)return;
+
+  if(evt==='session.created'){
+    const session=data?.session||{};
+    realtimeSessionId=session?.id||realtimeSessionId;
+    updateRealtimeButtons(realtimeLive);
+    if(realtimeSessionId)setRealtimeStatus('Realtime session ready: '+realtimeSessionId);
+    return;
+  }
+  if(evt==='session.closed'){
+    realtimeSessionId=null;
+    updateRealtimeButtons(false);
+    return;
+  }
+  if(evt==='error'){
+    const msg=data?.error?.message||'Realtime websocket error';
+    setRealtimeStatus(msg,true);
+    if(realtimeFinalizeWaiter&&typeof realtimeFinalizeWaiter.reject==='function'){
+      realtimeFinalizeWaiter.reject(new Error(msg));
+      realtimeFinalizeWaiter=null;
+    }
+    return;
+  }
+
+  if(evt==='input_audio_buffer.appended'){
+    if(typeof data?.text==='string'){realtimeText=data.text;setRealtimeText(realtimeText);}
+    const audioMs=toNum(data?.audio_ms_total);
+    if(audioMs!==null&&realtimeSessionId)setRealtimeStatus('Live session '+realtimeSessionId+' | audio '+(audioMs/1000).toFixed(2)+'s');
+    const timing=(data&&typeof data.x_timing==='object')?data.x_timing:{};
+    const engine=(timing&&typeof timing.engine==='object')?timing.engine:{};
+    if(timing&&Object.keys(timing).length){
+      recordServiceTiming('stt',{
+        communication_total_ms:toNum(timing.request_total_ms),
+        request_total_ms:toNum(timing.request_total_ms),
+        engine_total_ms:toNum(engine.engine_total_ms),
+        engine_feed_ms:toNum(engine.engine_feed_ms),
+        engine_wait_ms:toNum(engine.engine_wait_ms),
+        lock_wait_ms:toNum(engine.lock_wait_ms),
+      },realtimeTransport==='ws'?'realtime-ws-chunk':'realtime-http-chunk');
+    }
+    return;
+  }
+
+  if(evt==='conversation.item.input_audio_transcription.delta'){
+    if(typeof data?.text==='string'){realtimeText=data.text;setRealtimeText(realtimeText);}
+    else if(typeof data?.delta==='string'&&data.delta){
+      realtimeText=(realtimeText?realtimeText+' ':'')+data.delta;
+      setRealtimeText(realtimeText);
+    }
+    return;
+  }
+
+  if(evt==='conversation.item.input_audio_transcription.completed'||evt==='response.completed'){
+    const response=(data&&typeof data.response==='object')?data.response:{};
+    const textCandidate=typeof data?.text==='string'?data.text:(typeof response?.text==='string'?response.text:'');
+    if(textCandidate){realtimeText=textCandidate;setRealtimeText(realtimeText);}
+    const timing=(data&&typeof data.x_timing==='object')?data.x_timing:{};
+    const totalMs=toNum(timing.request_total_ms);
+    const audioMs=toNum(data?.audio_ms_total);
+    if(totalMs!==null){
+      recordServiceTiming('stt',{
+        communication_total_ms:totalMs,
+        request_total_ms:totalMs,
+        engine_total_ms:toNum(timing.engine_total_ms),
+        engine_feed_ms:toNum(timing.engine_feed_ms),
+        engine_wait_ms:toNum(timing.engine_wait_ms),
+        lock_wait_ms:toNum(timing.lock_wait_ms),
+        audio_duration_s:audioMs!==null?audioMs/1000.0:null,
+      },realtimeTransport==='ws'?'realtime-ws-finalize':'realtime-finalize');
+    }
+    if(realtimeFinalizeWaiter&&typeof realtimeFinalizeWaiter.resolve==='function'){
+      realtimeFinalizeWaiter.resolve({
+        text:realtimeText,
+        audio_ms_total:audioMs,
+        x_timing:timing,
+      });
+      realtimeFinalizeWaiter=null;
+    }
+  }
+}
+
+async function connectRealtimeWebSocket(createPayload){
+  if(typeof window.WebSocket==='undefined')throw new Error('WebSocket API is not supported in this browser.');
+  const wsUrl=buildRealtimeWsUrl('/ws/stt/realtime?autocreate=0&sample_rate_hz=16000');
+  return await new Promise((resolve,reject)=>{
+    let settled=false;
+    const ws=new WebSocket(wsUrl);
+    const timeout=setTimeout(()=>{
+      if(settled)return;
+      settled=true;
+      try{ws.close();}catch(_){}
+      reject(new Error('Realtime WebSocket connection timed out.'));
+    },10000);
+
+    ws.onopen=()=>{
+      setRealtimeTransportLabel('Transport: WebSocket');
+      try{
+        ws.send(JSON.stringify({type:'session.create',session:createPayload}));
+      }catch(e){
+        clearTimeout(timeout);
+        settled=true;
+        reject(e);
+      }
+    };
+
+    ws.onmessage=(event)=>{
+      let data=null;
+      try{data=JSON.parse(event.data);}catch(_){return;}
+      handleRealtimeWsEvent(data);
+      if(!settled&&String(data?.type||'').toLowerCase()==='session.created'){
+        clearTimeout(timeout);
+        settled=true;
+        resolve(ws);
+      }else if(!settled&&String(data?.type||'').toLowerCase()==='error'){
+        clearTimeout(timeout);
+        settled=true;
+        const msg=data?.error?.message||'Realtime WebSocket rejected session.create';
+        reject(new Error(msg));
+      }
+    };
+
+    ws.onerror=()=>{
+      if(settled)return;
+      clearTimeout(timeout);
+      settled=true;
+      reject(new Error('Realtime WebSocket connection failed.'));
+    };
+
+    ws.onclose=()=>{
+      if(realtimeWs===ws)realtimeWs=null;
+      if(realtimeLive)setRealtimeStatus('Realtime WebSocket closed.',true);
+      if(realtimeFinalizeWaiter&&typeof realtimeFinalizeWaiter.reject==='function'){
+        realtimeFinalizeWaiter.reject(new Error('Realtime WebSocket closed.'));
+        realtimeFinalizeWaiter=null;
+      }
+      if(!settled){
+        clearTimeout(timeout);
+        settled=true;
+        reject(new Error('Realtime WebSocket closed before session setup.'));
+      }
+    };
+
+    realtimeWs=ws;
+  });
+}
+
+async function flushRealtimeChunksHttp(commit=false){
+  if(!realtimeSessionId||realtimeInFlight)return;
+  if(realtimeChunkQueue.length===0&&!commit)return;
+  const payload=mergeUint8Chunks(realtimeChunkQueue);
+  realtimeChunkQueue=[];
+  realtimeInFlight=true;
+  try{
+    const q=new URLSearchParams();
+    q.set('sample_rate_hz','16000');
+    q.set('commit',commit?'1':'0');
+    const url='/api/stt/realtime/sessions/'+encodeURIComponent(realtimeSessionId)+'/audio?'+q.toString();
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:payload});
+    const data=await safeJson(r);
+    if(!r.ok)throw new Error(data?.error?.message||('HTTP '+r.status));
+    handleRealtimeWsEvent({
+      type:'input_audio_buffer.appended',
+      ...data,
+    });
+  }catch(e){
+    setRealtimeStatus('Realtime chunk error: '+e.message,true);
+  }finally{
+    realtimeInFlight=false;
+  }
+}
+
+async function flushRealtimeChunks(commit=false){
+  if(!realtimeSessionId||realtimeInFlight)return;
+  if(realtimeChunkQueue.length===0&&!commit)return;
+  const payload=mergeUint8Chunks(realtimeChunkQueue);
+  realtimeChunkQueue=[];
+  realtimeInFlight=true;
+  try{
+    if(realtimeTransport==='ws'&&realtimeWs&&realtimeWs.readyState===WebSocket.OPEN){
+      if(payload.length>0){
+        realtimeWs.send(JSON.stringify({
+          type:'input_audio_buffer.append',
+          audio:uint8ToBase64(payload),
+          sample_rate_hz:16000,
+        }));
+      }
+      if(commit){
+        realtimeWs.send(JSON.stringify({type:'input_audio_buffer.commit'}));
+      }
+    }else{
+      await flushRealtimeChunksHttp(commit);
+      return;
+    }
+  }catch(e){
+    setRealtimeStatus('Realtime chunk error: '+e.message,true);
+  }finally{
+    realtimeInFlight=false;
+  }
+}
+
+async function startRealtimeMic(){
+  if(!STT_UI_FLAGS.enableRealtimeEndpointPicker){
+    setRealtimeStatus('Realtime endpoint mode is disabled in this UI.',true);
+    return;
+  }
+  if(realtimeLive)return;
+  const support=getMicSupportState();
+  if(!support.secure){
+    setRealtimeStatus('Live mic requires HTTPS or localhost secure context.',true);
+    setRealtimeTransportLabel('Transport: unavailable (insecure context)');
+    return;
+  }
+  if(!support.hasMediaDevices){
+    setRealtimeStatus('Realtime unavailable: getUserMedia API missing.',true);
+    setRealtimeTransportLabel('Transport: unavailable');
+    return;
+  }
+  try{
+    const createPayload={
+      model:'gpt-4o-mini-transcribe',
+      language:document.getElementById('sttLang').value||'en',
+      task:document.getElementById('sttTask').value||'transcribe',
+      sample_rate_hz:16000,
+      max_duration_s:30,
+      turn_detection:{type:'server_vad',threshold:0.015,silence_duration_ms:800},
+    };
+
+    realtimeTransport='ws';
+    setRealtimeTransportLabel('Transport: connecting WebSocket...');
+    try{
+      await connectRealtimeWebSocket(createPayload);
+    }catch(wsError){
+      setRealtimeTransportLabel('Transport: HTTP fallback');
+      realtimeTransport='http';
+      const createResp=await fetch('/api/stt/realtime/sessions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(createPayload),
+      });
+      const createData=await safeJson(createResp);
+      if(!createResp.ok)throw new Error(createData?.error?.message||('HTTP '+createResp.status));
+      realtimeSessionId=createData?.id;
+      if(!realtimeSessionId)throw new Error('Session id missing in realtime create response');
+    }
+
+    realtimeMediaStream=await navigator.mediaDevices.getUserMedia({audio:true});
+    realtimeAudioContext=new (window.AudioContext||window.webkitAudioContext)();
+    realtimeSourceNode=realtimeAudioContext.createMediaStreamSource(realtimeMediaStream);
+    realtimeProcessorNode=realtimeAudioContext.createScriptProcessor(4096,1,1);
+    realtimeProcessorNode.onaudioprocess=(ev)=>{
+      if(!realtimeLive)return;
+      const input=ev.inputBuffer.getChannelData(0);
+      const copy=new Float32Array(input);
+      const down=downsampleFloat32(copy,realtimeAudioContext.sampleRate,16000);
+      const pcm=float32ToPcm16Bytes(down);
+      if(pcm.length>0)realtimeChunkQueue.push(pcm);
+    };
+    realtimeSourceNode.connect(realtimeProcessorNode);
+    realtimeProcessorNode.connect(realtimeAudioContext.destination);
+
+    realtimeLive=true;
+    realtimeText='';
+    setRealtimeText('');
+    updateRealtimeButtons(true);
+    setRealtimeStatus('Realtime started: '+(realtimeSessionId||'starting...'));
+    realtimeFlushTimer=setInterval(()=>{flushRealtimeChunks(false);},500);
+  }catch(e){
+    setRealtimeStatus('Realtime start failed: '+friendlyMicError(e),true);
+    await stopRealtimeMic(false);
+  }
+}
+
+async function stopRealtimeMic(keepSession=false){
+  if(!STT_UI_FLAGS.enableRealtimeEndpointPicker&&!realtimeLive&&!realtimeSessionId){
+    return;
+  }
+  realtimeLive=false;
+  if(realtimeFlushTimer){clearInterval(realtimeFlushTimer);realtimeFlushTimer=null;}
+  try{await flushRealtimeChunks(false);}catch(_){}
+  if(realtimeProcessorNode){try{realtimeProcessorNode.disconnect();}catch(_){} realtimeProcessorNode.onaudioprocess=null;realtimeProcessorNode=null;}
+  if(realtimeSourceNode){try{realtimeSourceNode.disconnect();}catch(_){} realtimeSourceNode=null;}
+  if(realtimeAudioContext){try{await realtimeAudioContext.close();}catch(_){} realtimeAudioContext=null;}
+  if(realtimeMediaStream){realtimeMediaStream.getTracks().forEach(t=>t.stop());realtimeMediaStream=null;}
+
+  if(!keepSession&&realtimeSessionId){
+    if(realtimeTransport==='ws'&&realtimeWs&&realtimeWs.readyState===WebSocket.OPEN){
+      try{realtimeWs.send(JSON.stringify({type:'session.close'}));}catch(_){}
+      try{realtimeWs.close();}catch(_){}
+      realtimeWs=null;
+    }else{
+      try{await fetch('/api/stt/realtime/sessions/'+encodeURIComponent(realtimeSessionId),{method:'DELETE'});}catch(_){}
+    }
+    realtimeSessionId=null;
+    realtimeText='';
+    setRealtimeText('');
+  }
+  updateRealtimeButtons(false);
+}
+
+function escHtml(text){
+  if(!text)return'';
+  const map={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+  return String(text).replace(/[&<>"']/g,c=>map[c]);
+}
+
+async function safeJson(resp){
+  try{
+    return await resp.json();
+  }catch(_){
+    return {};
+  }
+}
+
+function setAudioFile(file){
+  currentAudioFile=file;
+  const player=document.getElementById('audioPlayer');
+  if(player){
+    player.src=URL.createObjectURL(file);
+    player.classList.remove('hidden');
+  }
+  estimateWavDuration(file).then(dur=>{currentAudioDurationSec=dur;});
+  syncSttActionButtons();
+}
+
+async function transcribeAudio(){
+  if(!ensureServiceReady('Speech-To-Text','sttStatus'))return;
+  if(!currentAudioFile){document.getElementById('sttStatus').textContent='Select an audio file first';return;}
+  const btn=document.getElementById('transcribeBtn');
+  const btnText=document.getElementById('transcribeBtnText');
+  const statusEl=document.getElementById('sttStatus');
+  sttUiBusy=true;syncSttActionButtons();
+  btn.disabled=true;btnText.innerHTML='<span class="spinner"></span>';
+  statusEl.textContent='Transcribing...';
+  const tReqStart=performance.now();
+  try{
+    const formData=new FormData();
+    formData.append('file',currentAudioFile);
+    formData.append('task',document.getElementById('sttTask').value||'transcribe');
+    formData.append('response_format',document.getElementById('sttFormat').value||'verbose_json');
+    const lang=document.getElementById('sttLang').value;
+    if(lang)formData.append('language',lang);
+    const resp=await fetch('/api/stt/transcribe',{method:'POST',body:formData});
+    const data=await safeJson(resp);
+    if(!resp.ok)throw new Error(data?.error?.message||'HTTP '+resp.status);
+    const text=data.text||'';
+    document.getElementById('transcriptText').textContent=text;
+    document.getElementById('sttResultCard').style.display='block';
+    const communicationTotalMs=performance.now()-tReqStart;
+    recordServiceTiming('stt',{communication_total_ms:communicationTotalMs,request_total_ms:toNum(data?.x_timing?.request_total_ms),engine_total_ms:toNum(data?.x_timing?.engine_total_ms),audio_duration_s:currentAudioDurationSec},'transcribe');
+    statusEl.textContent='Transcribed in '+communicationTotalMs.toFixed(1)+' ms';
+  }catch(e){
+    statusEl.textContent='Error: '+e.message;
+  }finally{
+    sttUiBusy=false;syncSttActionButtons();
+    btn.disabled=false;btnText.textContent='Transcribe';
+  }
+}
+
+async function transcribeAudioViaRealtime(){
+  if(!ensureServiceReady('Speech-To-Text','sttRtStatus'))return;
+  if(!currentAudioFile){document.getElementById('sttRtStatus').textContent='Select an audio file first';return;}
+  const btn=document.getElementById('sttRtProcessBtn');
+  const btnText=document.getElementById('sttRtProcessBtnText');
+  sttUiBusy=true;syncSttActionButtons();
+  btn.disabled=true;if(btnText)btnText.innerHTML='<span class="spinner"></span>';
+  setRealtimeStatus('Decoding audio...');
+  try{
+    const decoded=await decodeAudioFileToPcmBytes(currentAudioFile,16000);
+    const session=await createRealtimeUploadSession({model:'gpt-4o-mini-transcribe',language:document.getElementById('sttLang').value||'en',task:document.getElementById('sttTask').value||'transcribe',sample_rate_hz:16000});
+    realtimeSessionId=session.id;
+    realtimeText='';
+    setRealtimeText('');
+    const chunks=splitUint8Chunks(decoded.pcmBytes,16000);
+    for(const chunk of chunks){
+      await appendRealtimeUploadChunk(realtimeSessionId,chunk,decoded.sampleRateHz);
+    }
+    const result=await finalizeRealtimeUploadSession(realtimeSessionId);
+    realtimeText=result.text||'';
+    setRealtimeText(realtimeText);
+    setRealtimeStatus('Finalized');
+    realtimeSessionId=null;
+  }catch(e){
+    setRealtimeStatus('Error: '+e.message,true);
+  }finally{
+    sttUiBusy=false;syncSttActionButtons();
+    btn.disabled=false;if(btnText)btnText.textContent='Process Uploaded File via Realtime';
+  }
+}
+
+function clearStt(){
+  currentAudioFile=null;
+  document.getElementById('audioFile').value='';
+  const player=document.getElementById('audioPlayer');
+  if(player){player.pause();player.removeAttribute('src');player.load();player.classList.add('hidden');}
+  document.getElementById('sttResultCard').style.display='none';
+  document.getElementById('sttStatus').textContent='';
+  setRealtimeText('');
+  setRealtimeStatus('');
+  syncSttActionButtons();
+}
+
+function i2tDragOver(e){e.preventDefault();document.getElementById('i2tDropZone').classList.add('drag-over');}
+function i2tDragLeave(e){document.getElementById('i2tDropZone').classList.remove('drag-over');}
+function i2tDrop(e){e.preventDefault();document.getElementById('i2tDropZone').classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f)i2tImageSelected({target:{files:[f]}});}
+
+function i2tImageSelected(e){
+  const f=e.target.files[0];
+  if(!f)return;
+  i2tCurrentFile=f;
+  const reader=new FileReader();
+  reader.onload=ev=>{lastImageB64=ev.target.result.split(',')[1];const preview=document.getElementById('i2tImgPreview');const img=document.getElementById('i2tImgEl');img.src=ev.target.result;preview.classList.remove('hidden');document.getElementById('i2tAnalyzeBtn').disabled=false;};
+  reader.readAsDataURL(f);
+}
+
+async function i2tAnalyze(){
+  if(!ensureServiceReady('Image-To-Text','i2tStatusBar'))return;
+  if(!lastImageB64){document.getElementById('i2tStatusBar').textContent='Upload an image first';return;}
+  const btn=document.getElementById('i2tAnalyzeBtn');
+  const btnText=document.getElementById('i2tAnalyzeBtnText');
+  btn.disabled=true;btnText.innerHTML='<span class="spinner"></span>';
+  document.getElementById('i2tStatusBar').textContent='Analyzing...';
+  const tReqStart=performance.now();
+  try{
+    const prompt=document.getElementById('i2tPrompt').value.trim()||'Describe this image';
+    const maxTokens=parseInt(document.getElementById('i2tMaxTokens').value)||128;
+        const stream=document.getElementById('i2tStream').checked;
+  const mode=cfg?.i2t?.mode||'device';
+  const model=mode==='cloud'?'gpt-4o':'qwen2.5-vl-7b-instruct';
+  let payload;
+  if(mode==='cloud'){
+    payload={model,input:[{role:'user',content:[{type:'input_text',text:prompt},{type:'input_image',image_url:'data:image/jpeg;base64,'+lastImageB64}]}],stream};
+  }else{
+    const maxTokens=parseInt(document.getElementById('i2tMaxTokens').value)||128;
+    payload={model,input:[{role:'user',content:[{type:'input_text',text:prompt},{type:'input_image',image_url:'data:image/jpeg;base64,'+lastImageB64}]}],max_tokens:maxTokens,stream};
+  }
+    const headers={'Content-Type':'application/json',...getHeaders('i2t')};
+    if(mode==='cloud'){
+      headers['x-i2t-mode']='cloud';
+    }
+    const resp=await fetch('/v1/responses',{method:'POST',headers,body:JSON.stringify(payload)});
+    if(!resp.ok){const err=await safeJson(resp);throw new Error(err?.error?.message||'HTTP '+resp.status);}
+    let text='';
+    if(stream){
+      const reader=resp.body.getReader();const decoder=new TextDecoder();let sseBuf='';
+      let done=false;
+      while(!done){
+        const{done:d,value}=await reader.read();
+        if(d){sseBuf+=decoder.decode();done=true;}else{sseBuf+=decoder.decode(value,{stream:true});}
+        const parsed=extractSseDataEvents(sseBuf);sseBuf=parsed.rest;
+                for(const evt of parsed.events){
+          if(evt==='[DONE]')continue;
+          try{const obj=JSON.parse(evt);const delta=obj?.choices?.[0]?.delta?.content||obj?.output_text||obj?.delta||'';if(delta)text+=delta;}catch(_){}
+        }
+      }
+        }else{
+      const data=await safeJson(resp);
+      text=data?.output_text||data?.choices?.[0]?.message?.content||'';
+    }
+    i2tChatHistory=[{role:'user',content:prompt},{role:'assistant',content:text}];
+    i2tAnalyzed=true;
+    const chatWin=document.getElementById('i2tChatWindow');
+    chatWin.innerHTML='<div class="msg user">'+escHtml(prompt)+'</div><div class="msg assistant">'+escHtml(text)+'</div>';
+    document.getElementById('i2tFollowInput').disabled=false;
+    document.getElementById('i2tFollowBtn').disabled=false;
+    document.getElementById('i2tFollowHint').textContent='Ask a follow-up question';
+    document.getElementById('i2tStatusBar').textContent='Ready for follow-up';
+    recordServiceTiming('i2t',{communication_total_ms:performance.now()-tReqStart},'analyze');
+  }catch(e){
+    document.getElementById('i2tStatusBar').textContent='Error: '+e.message;
+  }finally{
+    btn.disabled=false;btnText.textContent='Analyze Image';
+  }
+}
+
+function i2tFollowKeydown(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();i2tFollowUp();}}
+
+async function i2tFollowUp(){
+  if(!i2tAnalyzed)return;
+  const input=document.getElementById('i2tFollowInput');
+  const text=input.value.trim();
+  if(!text)return;
+  const btn=document.getElementById('i2tFollowBtn');
+  btn.disabled=true;input.value='';
+  const chatWin=document.getElementById('i2tChatWindow');
+  const userMsg=document.createElement('div');userMsg.className='msg user';userMsg.textContent=text;chatWin.appendChild(userMsg);
+  i2tChatHistory.push({role:'user',content:text});
+  const assistantMsg=document.createElement('div');assistantMsg.className='msg assistant';assistantMsg.textContent='...';chatWin.appendChild(assistantMsg);chatWin.scrollTop=9999;
+        try{
+    const mode=cfg?.i2t?.mode||'device';
+    const model=mode==='cloud'?'gpt-4o':'qwen2.5-vl-7b-instruct';
+    let payload;
+    if(mode==='cloud'){
+      payload={model,input:[{role:'user',content:[{type:'input_text',text:text}]}],stream:document.getElementById('i2tStream').checked};
+    }else{
+      payload={model,input:[{role:'user',content:[{type:'input_text',text:text}]}],max_tokens:parseInt(document.getElementById('i2tMaxTokens').value)||128,stream:document.getElementById('i2tStream').checked};
+    }
+    const headers={'Content-Type':'application/json',...getHeaders('i2t')};
+    if(mode==='cloud'){
+      headers['x-i2t-mode']='cloud';
+    }
+    const resp=await fetch('/v1/responses',{method:'POST',headers,body:JSON.stringify(payload)});
+        if(!resp.ok)throw new Error('HTTP '+resp.status);
+    let response='';
+    if(payload.stream){
+      const reader=resp.body.getReader();const decoder=new TextDecoder();let sseBuf='';
+      let done=false;
+      while(!done){
+        const{done:d,value}=await reader.read();
+        if(d){sseBuf+=decoder.decode();done=true;}else{sseBuf+=decoder.decode(value,{stream:true});}
+        const parsed=extractSseDataEvents(sseBuf);sseBuf=parsed.rest;
+                for(const evt of parsed.events){
+          if(evt==='[DONE]')continue;
+          try{const obj=JSON.parse(evt);const delta=obj?.choices?.[0]?.delta?.content||obj?.output_text||obj?.delta||'';if(delta){response+=delta;assistantMsg.textContent=response;chatWin.scrollTop=9999;}}catch(_){}
+        }
+      }
+        }else{
+      const data=await safeJson(resp);
+      response=data?.output_text||data?.choices?.[0]?.message?.content||'';
+      assistantMsg.textContent=response;
+    }
+    i2tChatHistory.push({role:'assistant',content:response});
+  }catch(e){
+    assistantMsg.textContent='Error: '+e.message;
+  }finally{
+    btn.disabled=false;
+  }
+}
+
+function i2tClear(){
+  i2tCurrentFile=null;lastImageB64=null;
+  document.getElementById('i2tImageFile').value='';
+  document.getElementById('i2tImgPreview').classList.add('hidden');
+  document.getElementById('i2tAnalyzeBtn').disabled=true;
+  document.getElementById('i2tFollowInput').disabled=true;document.getElementById('i2tFollowInput').value='';
+  document.getElementById('i2tFollowBtn').disabled=true;
+  document.getElementById('i2tChatWindow').innerHTML='<div class="msg system-msg">Upload an image and click Analyze Image</div>';
+  i2tAnalyzed=false;i2tChatHistory=[];
+}
+
+function i2tReset(){
+  i2tSessionId=null;
+  i2tClear();
+}
+
+async function generateImage(){
+  if(!ensureServiceReady('Image-Generation','imgStatus'))return;
+  const prompt=document.getElementById('imgPrompt').value.trim();
+  if(!prompt){document.getElementById('imgStatus').textContent='Enter a prompt first';return;}
+  const btn=document.getElementById('generateBtn');
+  const btnText=document.getElementById('generateBtnText');
+  btn.disabled=true;btnText.innerHTML='<span class="spinner"></span>';
+  document.getElementById('imgStatus').textContent='Generating...';
+  const tReqStart=performance.now();
+  try{
+    const mode=cfg.img.mode||'device';
+    let payload;
+    if(mode==='device'){
+      payload={prompt,negative_prompt:document.getElementById('imgNegPrompt').value.trim()||'',num_inference_steps:parseInt(document.getElementById('imgSteps').value)||20,guidance_scale:parseFloat(document.getElementById('imgGuidance').value)||7.5,seed:parseInt(document.getElementById('imgSeed').value)||-1};
+    }else{
+      payload={prompt,model:document.getElementById('imgCloudModel').value||'dall-e-3',size:document.getElementById('imgCloudSize').value||'1024x1024',quality:document.getElementById('imgCloudQuality').value||'standard',n:1};
+    }
+    const headers={'Content-Type':'application/json',...getHeaders('img')};
+    const resp=await fetch('/api/img/generate',{method:'POST',headers,body:JSON.stringify(payload)});
+    const data=await safeJson(resp);
+    if(!resp.ok)throw new Error(data?.error?.message||'HTTP '+resp.status);
+    const imageUrl=data?.data?.[0]?.url||data?.data?.[0]?.b64_json;
+    if(imageUrl){
+      const output=document.getElementById('imgOutput');
+      if(imageUrl.startsWith('data:')){
+        output.innerHTML='<img src="'+imageUrl+'" alt="Generated">';
+        lastImageB64=imageUrl.split(',')[1];
+      }else{
+        output.innerHTML='<img src="'+imageUrl+'" alt="Generated">';
+        lastImageUrl=imageUrl;
+      }
+      document.getElementById('downloadBtn').classList.remove('hidden');
+    }
+    document.getElementById('imgMeta').textContent='Generated in '+(performance.now()-tReqStart).toFixed(1)+' ms';
+    recordServiceTiming('img',{communication_total_ms:performance.now()-tReqStart},'generate');
+  }catch(e){
+    document.getElementById('imgStatus').textContent='Error: '+e.message;
+  }finally{
+    btn.disabled=false;btnText.textContent='Generate';
+  }
+}
+
+function clearImage(){
+  document.getElementById('imgPrompt').value='';
+  document.getElementById('imgNegPrompt').value='';
+  document.getElementById('imgOutput').innerHTML='<div class="img-placeholder"><div class="ph-icon">&#128444;&#65039;</div><div>Generated image will appear here</div></div>';
+  document.getElementById('imgMeta').textContent='';
+  document.getElementById('downloadBtn').classList.add('hidden');
+  document.getElementById('imgStatus').textContent='';
+  lastImageB64=null;lastImageUrl=null;
+}
+
+function downloadImage(){
+  if(!lastImageB64&&!lastImageUrl)return;
+  const link=document.createElement('a');
+  if(lastImageB64){
+    link.href='data:image/png;base64,'+lastImageB64;
+  }else{
+    link.href=lastImageUrl;
+  }
+  link.download='generated-image.png';
+  link.click();
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  initEndpointBars();
+  renderOpenAIEndpointMap();
+  refreshStatus();
+  setInterval(()=>{checkEpStatus('tg');checkEpStatus('stt');checkEpStatus('tts');checkEpStatus('i2t');checkEpStatus('img');},5000);
+});
+</script>
+</body>
+</html>

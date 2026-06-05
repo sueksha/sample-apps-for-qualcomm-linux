@@ -1,0 +1,678 @@
+meta:
+  service: text-to-speech
+  base_url: http://{target_host}:8083
+  profile: lite
+  target_cases: 45
+
+variables:
+  target_host: 10.92.165.205
+  model_id: tts-1
+  large_text_1000: "__GEN_WORDS_1000__"
+  gibberish_text_1000: "__GEN_GIBBERISH_1000__"
+
+defaults:
+  timeout_s: 90
+
+cases:
+  - id: TTS-P01
+    kind: positive
+    name: Health endpoint
+    request:
+      method: GET
+      path: /health
+    expect:
+      statuses: [200]
+      body_contains: [status]
+
+  - id: TTS-P02
+    kind: positive
+    name: Models endpoint
+    request:
+      method: GET
+      path: /v1/models
+    expect:
+      statuses: [200]
+      json_keys: [data]
+
+  - id: TTS-P03
+    kind: positive
+    name: Speech synthesis basic request
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        input: Hello from unified TTS suite.
+        voice: alloy
+        response_format: wav
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+
+  - id: TTS-P04
+    kind: positive
+    name: Speech synthesis with speed 0.9
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        input: Speed point nine test.
+        voice: alloy
+        speed: 0.9
+        response_format: wav
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+    retry:
+      attempts: 4
+      sleep_s: 1.5
+
+  - id: TTS-P05
+    kind: positive
+    name: Speech synthesis with speed 1.1
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        input: Speed point one one test.
+        voice: alloy
+        speed: 1.1
+        response_format: wav
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+
+  - id: TTS-P06
+    kind: positive
+    name: Speech synthesis with alternative voice
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        input: Voice variation check.
+        voice: echo
+        response_format: wav
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+
+  - id: TTS-P07
+    kind: positive
+    name: Speech synthesis with punctuation content
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        input: Hello, world. This is punctuation test.
+        voice: alloy
+        response_format: wav
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+    retry:
+      attempts: 4
+      sleep_s: 1.5
+
+  - id: TTS-P08
+    kind: positive
+    name: Speech synthesis with explicit speed one
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        input: Explicit speed one test.
+        voice: alloy
+        speed: 1.0
+        response_format: wav
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+
+  - id: TTS-P09
+    kind: positive
+    name: Legacy generate endpoint basic
+    request:
+      method: POST
+      path: /generate
+      json:
+        text: Legacy TTS endpoint validation.
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+    retry:
+      attempts: 4
+      sleep_s: 1.5
+
+  - id: TTS-P10
+    kind: positive
+    name: Legacy generate with numbers
+    request:
+      method: POST
+      path: /generate
+      json:
+        text: The quick check number is one two three.
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+
+  - id: TTS-P11
+    kind: positive
+    name: Speech synthesis short content
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        input: Short.
+        voice: alloy
+        response_format: wav
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+
+  - id: TTS-P12
+    kind: positive
+    name: Speech synthesis multiline content
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        input: "Line one.\nLine two."
+        voice: alloy
+        response_format: wav
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+
+  - id: TTS-P13
+    kind: positive
+    name: Speech synthesis non-default voice and speed
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        input: Voice and speed coverage case.
+        voice: nova
+        speed: 0.95
+        response_format: wav
+    retry:
+      attempts: 3
+      sleep_s: 1.5
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+
+  - id: TTS-P14
+    kind: positive
+    name: Legacy generate with voice and speed fields
+    request:
+      method: POST
+      path: /generate
+      json:
+        text: Legacy voice speed check.
+        voice: alloy
+        speed: 1.05
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+
+  - id: TTS-P15
+    kind: positive
+    name: Speech synthesis pcm normalized response
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        input: Response format normalization check.
+        voice: alloy
+        response_format: pcm
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+
+  - id: TTS-P16
+    kind: positive
+    name: Speech synthesis with 1000-word input
+    request:
+      method: POST
+      path: /v1/audio/speech
+      timeout_s: 240
+      json:
+        model: "{model_id}"
+        input: "{large_text_1000}"
+        voice: alloy
+        response_format: wav
+    retry:
+      attempts: 2
+      sleep_s: 2.0
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+      max_elapsed_ms: 240000
+
+  - id: TTS-P17
+    kind: positive
+    name: Speech synthesis with 1000-word gibberish input
+    request:
+      method: POST
+      path: /v1/audio/speech
+      timeout_s: 240
+      json:
+        model: "{model_id}"
+        input: "{gibberish_text_1000}"
+        voice: alloy
+        response_format: wav
+    retry:
+      attempts: 3
+      sleep_s: 3.0
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+
+  - id: TTS-P18
+    kind: positive
+    name: Speech synthesis with multiline 1000-word input
+    request:
+      method: POST
+      path: /v1/audio/speech
+      timeout_s: 300
+      json:
+        model: "{model_id}"
+        input: "LineA {large_text_1000}\nLineB {large_text_1000}"
+        voice: alloy
+        response_format: wav
+    retry:
+      attempts: 2
+      sleep_s: 3.0
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+
+  - id: TTS-P19
+    kind: positive
+    name: Legacy generate with 1000-word text
+    request:
+      method: POST
+      path: /generate
+      timeout_s: 240
+      json:
+        text: "{large_text_1000}"
+    retry:
+      attempts: 3
+      sleep_s: 3.0
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+
+  - id: TTS-P20
+    kind: positive
+    name: Legacy generate with 1000-word gibberish text
+    request:
+      method: POST
+      path: /generate
+      timeout_s: 240
+      json:
+        text: "{gibberish_text_1000}"
+    retry:
+      attempts: 3
+      sleep_s: 3.0
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+
+  - id: TTS-P21
+    kind: positive
+    name: Speech synthesis high speed edge
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        input: high speed edge request
+        voice: alloy
+        speed: 1.2
+        response_format: wav
+    retry:
+      attempts: 6
+      sleep_s: 2.0
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+
+  - id: TTS-P22
+    kind: positive
+    name: Speech synthesis low speed edge
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        input: low speed edge request
+        voice: alloy
+        speed: 0.8
+        response_format: wav
+    retry:
+      attempts: 6
+      sleep_s: 2.0
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+
+  - id: TTS-P23
+    kind: positive
+    name: Speech synthesis punctuation-heavy payload
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        input: "!!! ??? ### @@ $$ %% && ** (( )) ... ;;; :::"
+        voice: alloy
+        response_format: wav
+    retry:
+      attempts: 6
+      sleep_s: 2.0
+    expect:
+      statuses: [200]
+      content_type_contains: audio
+      min_body_bytes: 64
+
+  - id: TTS-N01
+    kind: negative
+    name: Speech route wrong method
+    request:
+      method: GET
+      path: /v1/audio/speech
+    expect:
+      statuses: [405]
+
+  - id: TTS-N02
+    kind: negative
+    name: Speech request empty body
+    request:
+      method: POST
+      path: /v1/audio/speech
+      headers:
+        Content-Type: application/json
+      raw_body: ""
+    expect:
+      status_class: non-2xx
+
+  - id: TTS-N03
+    kind: negative
+    name: Speech malformed JSON
+    request:
+      method: POST
+      path: /v1/audio/speech
+      headers:
+        Content-Type: application/json
+      raw_body: "{not json}"
+    expect:
+      status_class: non-2xx
+
+  - id: TTS-N04
+    kind: negative
+    name: Speech missing input field
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        voice: alloy
+        response_format: wav
+    expect:
+      status_class: non-2xx
+
+  - id: TTS-N05
+    kind: negative
+    name: Speech input wrong type
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        input:
+          text: invalid
+        voice: alloy
+        response_format: wav
+    expect:
+      status_class: non-2xx
+
+  - id: TTS-N06
+    kind: negative
+    name: Speech speed wrong type
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        input: hello
+        voice: alloy
+        speed: fast
+        response_format: wav
+    expect:
+      status_class: non-2xx
+
+  - id: TTS-N07
+    kind: negative
+    name: Speech unsupported response format
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        input: hello
+        voice: alloy
+        response_format: mp3
+    expect:
+      status_class: non-2xx
+
+  - id: TTS-N08
+    kind: negative
+    name: Speech payload without model
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        input: hello
+        voice: alloy
+        response_format: wav
+    expect:
+      status_class: non-2xx
+
+  - id: TTS-N09
+    kind: negative
+    name: Legacy generate missing text field
+    request:
+      method: POST
+      path: /generate
+      json: {}
+    expect:
+      status_class: non-2xx
+
+  - id: TTS-N10
+    kind: negative
+    name: Legacy generate malformed JSON
+    request:
+      method: POST
+      path: /generate
+      headers:
+        Content-Type: application/json
+      raw_body: "{bad json"
+    expect:
+      status_class: non-2xx
+
+  - id: TTS-N11
+    kind: negative
+    name: Unknown route
+    request:
+      method: GET
+      path: /route-not-found
+    expect:
+      statuses: [404]
+
+  - id: TTS-N12
+    kind: negative
+    name: Health wrong method
+    request:
+      method: PATCH
+      path: /health
+    expect:
+      status_class: non-2xx
+
+  - id: TTS-N13
+    kind: negative
+    name: Legacy generate empty text
+    request:
+      method: POST
+      path: /generate
+      json:
+        text: ""
+    expect:
+      status_class: non-2xx
+
+  - id: TTS-N14
+    kind: negative
+    name: Legacy generate text wrong type
+    request:
+      method: POST
+      path: /generate
+      json:
+        text: 12345
+    expect:
+      status_class: non-2xx
+
+  - id: TTS-N15
+    kind: negative
+    name: Speech input empty string
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        input: ""
+        voice: alloy
+        response_format: wav
+    expect:
+      status_class: non-2xx
+
+  - id: TTS-N16
+    kind: negative
+    name: Speech voice wrong type
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        input: hello
+        voice: 999
+        response_format: wav
+    expect:
+      status_class: non-2xx
+
+  - id: TTS-N17
+    kind: negative
+    name: Speech speed negative value
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        input: hello
+        voice: alloy
+        speed: -1.0
+        response_format: wav
+    expect:
+      status_class: non-2xx
+
+  - id: TTS-N18
+    kind: negative
+    name: Speech response_format null
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: "{model_id}"
+        input: hello
+        voice: alloy
+        response_format: null
+    expect:
+      status_class: non-2xx
+
+  - id: TTS-N19
+    kind: negative
+    name: Speech empty model id
+    request:
+      method: POST
+      path: /v1/audio/speech
+      json:
+        model: ""
+        input: hello
+        voice: alloy
+        response_format: wav
+    expect:
+      status_class: non-2xx
+
+  - id: TTS-N20
+    kind: negative
+    name: Legacy generate voice wrong type
+    request:
+      method: POST
+      path: /generate
+      json:
+        text: hello
+        voice: {}
+    expect:
+      status_class: non-2xx
+
+  - id: TTS-N21
+    kind: negative
+    name: Legacy generate speed wrong type
+    request:
+      method: POST
+      path: /generate
+      json:
+        text: hello
+        speed: fast
+    expect:
+      status_class: non-2xx
+
+  - id: TTS-N22
+    kind: negative
+    name: Legacy generate body as array
+    request:
+      method: POST
+      path: /generate
+      json:
+        - invalid
+        - payload
+    expect:
+      status_class: non-2xx

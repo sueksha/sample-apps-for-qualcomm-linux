@@ -1,0 +1,97 @@
+diff --git a/streamlit_openai/__main__.py b/streamlit_openai/__main__.py
+index 2781066..63713e2 100644
+--- a/streamlit_openai/__main__.py
++++ b/streamlit_openai/__main__.py
+@@ -1,4 +1,5 @@
+ import argparse
++import os
+ import openai
+ from .version import __version__
+ 
+@@ -81,7 +82,7 @@ def main():
+     parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {__version__}", help="show the version of the tool")
+     parser.add_argument("--keep", nargs="+", metavar="ID", default=[], help="list of IDs to keep (e.g., file-123, vs_456, cntr_789)")
+     args = parser.parse_args()
+-    client = openai.OpenAI()
++    client = openai.OpenAI(base_url=os.getenv("OPENAI_BASE_URL"))
+     choices[args.command](client, args.keep)
+ 
+ if __name__ == "__main__":
+diff --git a/streamlit_openai/chat.py b/streamlit_openai/chat.py
+index 27c1969..30becc0 100644
+--- a/streamlit_openai/chat.py
++++ b/streamlit_openai/chat.py
+@@ -70,7 +70,7 @@ class Chat():
+     def __init__(
+         self,
+         api_key: Optional[str] = None,
+-        model: Optional[str] = "gpt-4o",
++        model: Optional[str] = "genie",
+         instructions: Optional[str] = None,
+         temperature: Optional[float] = 1.0,
+         accept_file: Union[bool, Literal["multiple"]] = "multiple",
+@@ -114,6 +114,7 @@ class Chat():
+             allow_image_generation (bool): Whether to allow image generation functionality (default: True).
+         """
+         self.api_key = os.getenv("OPENAI_API_KEY") if api_key is None else api_key
++        self.base_url = os.getenv("OPENAI_BASE_URL")
+         self.model = model
+         self.instructions = "" if instructions is None else instructions
+         self.temperature = temperature
+@@ -135,7 +136,7 @@ class Chat():
+         self.summary = "New Chat"
+         self.input_tokens = 0
+         self.output_tokens = 0
+-        self._client = openai.OpenAI(api_key=self.api_key)
++        self._client = openai.OpenAI(api_key=self.api_key, base_url=self.base_url)
+         self._temp_dir = tempfile.TemporaryDirectory()
+         self._selected_example = None
+         self._input = []
+@@ -225,7 +226,7 @@ class Chat():
+             sections.append(s)
+         if sections:
+             result = self._client.chat.completions.create(
+-                model="gpt-4o",
++                model="genie",
+                 temperature=0.001,
+                 messages=[
+                     {"role": "developer", "content": SUMMARY_INSTRUCTIONS},
+@@ -342,7 +343,10 @@ class Chat():
+ 
+     def respond(self, prompt) -> None:
+         """Sends the user prompt to the assistant and streams the response."""
+-        self._input.append({"role": "user", "content": prompt})
++        self._input.append({
++            "role": "user",
++            "content": [{"type": "input_text", "text": prompt}],
++        })
+         self.add_section("assistant")
+         if self.allow_code_interpreter:
+             result = self._client.containers.retrieve(container_id=self._container_id)
+@@ -569,10 +573,15 @@ class Chat():
+                     pass
+ 
+             if self._file_path.suffix in VISION_EXTENSIONS:
+-                self._vision_file = self.chat._client.files.create(file=self._file_path, purpose="vision")
++                with open(self._file_path, "rb") as f:
++                    image_bytes = f.read()
++                ext = self._file_path.suffix.lstrip(".").lower()
++                if ext == "jpg":
++                    ext = "jpeg"
++                data_url = f"data:image/{ext};base64,{base64.b64encode(image_bytes).decode('ascii')}"
+                 self.chat._input.append({
+                     "role": "user",
+-                    "content": [{"type": "input_image", "file_id": self._vision_file.id}]
++                    "content": [{"type": "input_image", "image_url": data_url}]
+                 })
+ 
+             if self.chat.allow_code_interpreter and self._file_path.suffix in CODE_INTERPRETER_EXTENSIONS:
+@@ -580,7 +589,7 @@ class Chat():
+                 # supported by the code interpreter, it will be automatically 
+                 # uploaded to the code interpreter container.
+                 if self._file_path.suffix in VISION_EXTENSIONS:
+-                    self._openai_file = self._vision_file
++                    self._openai_file = None
+                 if self._openai_file is None:
+                     with open(self._file_path, "rb") as f:
+                         self._openai_file = self.chat._client.files.create(file=f, purpose="user_data")
